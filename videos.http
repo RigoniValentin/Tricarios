@@ -1,0 +1,65 @@
+### Crear un video
+POST http://localhost:4000/api/v1/videos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YjU1NDRmN2Y5M2VkNWEzYjJiY2MzYyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwidXNlcm5hbWUiOiJ1c3VhcmlvQWRtaW4iLCJyb2xlcyI6W3siX2lkIjoiNjdiMWY3ZjMwNGZiYTUzODZiNDY4NmE2IiwibmFtZSI6ImFkbWluIiwicGVybWlzc2lvbnMiOlsiYWRtaW5fZ3JhbnRlZCJdLCJjcmVhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoiLCJ1cGRhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoifV0sIm5hdGlvbmFsaXR5IjoiQXJnZW50aW5vIiwibG9jYWxpdHkiOiJDQUJBIiwiYWdlIjoyNSwiaWF0IjoxNzQwMjYzMTU0LCJleHAiOjE3NDAyNzAzNTR9.CCzj2AIpCDegZqw4N0ndgE4J7vdLwWuna_1TzZ5qhgk
+
+{
+  "url": "https://www.youtube.com/watch?v=t4W12k0MYC0",
+  "category": "REFORMER",
+  "trainingType": "Flexibilidad",
+  "level": "Avanzado",
+  "muscleGroup": "CuerpoCompleto"
+}
+
+### Crear un video
+POST http://localhost:4000/api/v1/videos HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YjU1NDRmN2Y5M2VkNWEzYjJiY2MzYyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwidXNlcm5hbWUiOiJ1c3VhcmlvQWRtaW4iLCJyb2xlcyI6W3siX2lkIjoiNjdiMWY3ZjMwNGZiYTUzODZiNDY4NmE2IiwibmFtZSI6ImFkbWluIiwicGVybWlzc2lvbnMiOlsiYWRtaW5fZ3JhbnRlZCJdLCJjcmVhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoiLCJ1cGRhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoifV0sIm5hdGlvbmFsaXR5IjoiQXJnZW50aW5vIiwibG9jYWxpdHkiOiJDQUJBIiwiYWdlIjoyNSwiaWF0IjoxNzQwMjYzMTU0LCJleHAiOjE3NDAyNzAzNTR9.CCzj2AIpCDegZqw4N0ndgE4J7vdLwWuna_1TzZ5qhgk
+
+{
+  "url": "https://www.youtube.com/watch?v=t4W12k0MYC0",
+  "category": "Pared"
+}
+
+### Listar videos
+GET http://localhost:4000/api/v1/videos HTTP/1.1
+
+### Listar videos filtrados
+GET http://localhost:4000/api/v1/videos?category=MAT&trainingType=Fuerza&level=Inicial&muscleGroup=Brazos HTTP/1.1
+
+### Listar videos filtrados
+GET http://localhost:4000/api/v1/videos?category=Pared HTTP/1.1
+
+### Obtener video por ID (reemplaza {id} por un ID real)
+GET http://localhost:4000/api/v1/videos/{id} HTTP/1.1
+
+### Actualizar un video por ID 
+PUT http://localhost:4000/api/v1/videos/{id} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YjU1NDRmN2Y5M2VkNWEzYjJiY2MzYyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwidXNlcm5hbWUiOiJ1c3VhcmlvQWRtaW4iLCJyb2xlcyI6W3siX2lkIjoiNjdiMWY3ZjMwNGZiYTUzODZiNDY4NmE2IiwibmFtZSI6ImFkbWluIiwicGVybWlzc2lvbnMiOlsiYWRtaW5fZ3JhbnRlZCJdLCJjcmVhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoiLCJ1cGRhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoifV0sIm5hdGlvbmFsaXR5IjoiQXJnZW50aW5vIiwibG9jYWxpdHkiOiJDQUJBIiwiYWdlIjoyNSwiaWF0IjoxNzQwMjYzMTU0LCJleHAiOjE3NDAyNzAzNTR9.CCzj2AIpCDegZqw4N0ndgE4J7vdLwWuna_1TzZ5qhgk
+
+{
+  "level": "Avanzado"
+}
+
+### Actualizar un video por URL
+PUT http://localhost:4000/api/v1/videos-by-combo HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <TU_TOKEN_DE_ADMIN>
+
+{
+  "url": "https://www.youtube.com/watch?v=t4W12k0MYC0",
+  "category": "REFORMER",
+  "trainingType": "Flexibilidad",
+  "level": "Avanzado",
+  "muscleGroup": "CuerpoCompleto",
+  "newUrl": "https://www.youtube.com/watch?v=NuevoLinkVideo"
+}
+
+### Eliminar un video
+DELETE http://localhost:4000/api/v1/videos/{id} HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YjFmYjc2MDRmYmE1Mzg2YjQ2ODZiNyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwidXNlcm5hbWUiOiJ1c3VhcmlvQWRtaW4iLCJpYXQiOjE3Mzk3NzAzMTksImV4cCI6MTczOTc3MzkxOX0.1S0Dh_yXLdsTW50BBCGwpvqT2qb4A3ZmJ8XBkacECmI
+
+### Eliminar un video por URL
+DELETE http://localhost:4000/api/v1/videos?url=https://www.youtube.com/watch?v=9zQmkY19YrQ HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YjU1NDRmN2Y5M2VkNWEzYjJiY2MzYyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwidXNlcm5hbWUiOiJ1c3VhcmlvQWRtaW4iLCJyb2xlcyI6W3siX2lkIjoiNjdiMWY3ZjMwNGZiYTUzODZiNDY4NmE2IiwibmFtZSI6ImFkbWluIiwicGVybWlzc2lvbnMiOlsiYWRtaW5fZ3JhbnRlZCJdLCJjcmVhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoiLCJ1cGRhdGVkQXQiOiIyMDI1LTAyLTE2VDE0OjM2OjM1LjMyMVoifV0sImlhdCI6MTczOTk4ODE0MSwiZXhwIjoxNzM5OTk1MzQxfQ.UpmQocFwB3aR_iRPgPGZe6GQgWzcbDoOr9_AH7VeJ8g
