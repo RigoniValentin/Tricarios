@@ -62,6 +62,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     //const decodedPayload = jwt.decode(token);
     //console.log("Payload decodificado:", decodedPayload);
+    console.log("MercadoPago Access Token:", process.env.MP_ACCESS_TOKEN);
     res.json(token);
   } catch (error) {
     console.log("error :>> ", error);

@@ -6,8 +6,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 const app: Application = express();
-
-// Obtener la ruta raíz del proyecto
 const projectRoot = process.cwd();
 
 app.use(cookieParser());
@@ -15,19 +13,23 @@ app.use(express.json());
 app.use(morgan("dev"));
 app.use(cors());
 
-// Servir los archivos estáticos del front.
-// Asegúrate de que el directorio "distFront" se encuentre en la raíz del proyecto
-app.use(
-  "/",
-  express.static(path.join(projectRoot, "distFront"), { redirect: false })
-);
+// En producción se sirven los archivos estáticos del front
+if (process.env.NODE_ENV === "production") {
+  app.use(
+    "/",
+    express.static(path.join(projectRoot, "distFront"), { redirect: false })
+  );
 
-// Rutas de la API
+  // Catch-all: sirve el index.html para las demás rutas
+  app.get("*", (req, res) => {
+    return res.sendFile(path.join(projectRoot, "distFront", "index.html"));
+  });
+} else {
+  // En desarrollo puedes usar el servidor de desarrollo del front (por ejemplo, Vite)
+  console.log("Modo desarrollo: no se sirven archivos estáticos en backend");
+}
+
+// Rutas de la API (disponibles en todos los entornos)
 app.use("/api/v1", routes());
-
-// Catch-all: sirve el index.html para las demás rutas
-app.get("*", (req, res) => {
-  return res.sendFile(path.join(projectRoot, "distFront", "index.html"));
-});
 
 export default app;

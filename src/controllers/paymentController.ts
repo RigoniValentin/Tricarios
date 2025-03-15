@@ -16,10 +16,20 @@ const userService = new UserService(userRepository);
 const rolesRepository = new RolesRepository();
 const rolesService = new RolesService(new RolesRepository());
 
-// Agrega credenciales MP con variables de entorno para producción
+// Agrega credenciales MP basadas en el entorno (producción o test)
+const MP_ACCESS_TOKEN_ENV =
+  process.env.NODE_ENV === "production"
+    ? process.env.MP_ACCESS_TOKEN
+    : process.env.MP_ACCESS_TOKENtest;
+const MP_PUBLIC_KEY_ENV =
+  process.env.NODE_ENV === "production"
+    ? process.env.MP_PUBLIC_KEY
+    : process.env.MP_PUBLIC_KEYtest;
+
 const mercadoPagoClient = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN as string, // Updated to use production access token
+  accessToken: MP_ACCESS_TOKEN_ENV as string,
 });
+console.log("Using MercadoPago access token:", MP_ACCESS_TOKEN_ENV);
 
 //#region PayPal
 export const createOrder = async (
@@ -199,7 +209,8 @@ export const createPreference = async (req: Request, res: Response) => {
     const preference = new Preference(mercadoPagoClient);
     const result = await preference.create({ body });
     console.log("Preference created:", result.id);
-    res.json({ id: result.id });
+    // Retornar también el public key correcto
+    res.json({ id: result.id, public_key: MP_PUBLIC_KEY_ENV });
   } catch (error) {
     console.log("Error al procesar el pago (MP) :>>", error);
     res.status(500).json({ message: "Error al procesar el pago", error });
