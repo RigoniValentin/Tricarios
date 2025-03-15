@@ -16,10 +16,9 @@ const userService = new UserService(userRepository);
 const rolesRepository = new RolesRepository();
 const rolesService = new RolesService(new RolesRepository());
 
-// Agrega credenciales MP
+// Agrega credenciales MP con variables de entorno para producción
 const mercadoPagoClient = new MercadoPagoConfig({
-  accessToken:
-    "APP_USR-3238092910175396-030903-c0ef29c0c1addd5b3c720b4edba46123-243261764" /*process.env.MP_ACCESS_TOKEN as string,*/,
+  accessToken: process.env.MP_ACCESS_TOKEN as string, // Updated to use production access token
 });
 
 //#region PayPal
