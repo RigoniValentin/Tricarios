@@ -1,5 +1,5 @@
 import { HOST, PAYPAL_API, PAYPAL_API_CLIENT, PAYPAL_API_SECRET } from "app";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import axios from "axios";
 import { UserService } from "@services/userService";
 import { UserRepository } from "@repositories/userRepository";
@@ -232,7 +232,11 @@ export const createPreference = async (req: Request, res: Response) => {
 };
 
 // Este nuevo endpoint se ejecuta una vez confirmado el pago en MercadoPago
-export const capturePreference = async (req: Request, res: Response) => {
+export const capturePreference = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   console.log(
     "capturePreference: Function called with query params",
     req.query
@@ -251,7 +255,8 @@ export const capturePreference = async (req: Request, res: Response) => {
 
   if (status !== "approved") {
     console.log("capturePreference: Payment status not approved");
-    return res.status(400).json({ message: "Payment not approved" });
+    res.status(400).json({ message: "Payment not approved" });
+    return;
   }
 
   try {
@@ -260,14 +265,16 @@ export const capturePreference = async (req: Request, res: Response) => {
     console.log("capturePreference: User lookup for", userId, "result:", user);
     if (!user) {
       console.log("capturePreference: User not found");
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
+      return;
     }
 
     const paidUserRole = await rolesService.findRoles({ name: "user" });
     console.log("capturePreference: Retrieved role 'user':", paidUserRole);
     if (!paidUserRole || paidUserRole.length === 0) {
       console.log("capturePreference: Role 'user' not found");
-      return res.status(500).json({ message: "Role 'user' not found" });
+      res.status(500).json({ message: "Role 'user' not found" });
+      return;
     }
 
     const paymentDate = new Date();
