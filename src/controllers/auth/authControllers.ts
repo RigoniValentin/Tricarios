@@ -75,6 +75,11 @@ export const refreshToken = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Verificar que req.currentUser exista
+    if (!req.currentUser || !req.currentUser._id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
     const updatedUser = await userService.findUserById(
       req.currentUser._id as string
     );
@@ -97,9 +102,9 @@ export const refreshToken = async (
       { expiresIn: "2h" }
     );
     console.log("New token:", newToken);
-
     res.json({ token: newToken });
   } catch (error: any) {
+    console.error("Error in refreshToken:", error);
     res.status(500).json({ message: error.message || error });
   }
 };
