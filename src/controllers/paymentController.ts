@@ -209,12 +209,10 @@ export const createPreference = async (req: Request, res: Response) => {
     const preference = new Preference(mercadoPagoClient);
     const result = await preference.create({ body });
     console.log("Preference created:", result.id);
-    // Retornar token de acceso en producción, en lugar de la public key
+    // Always return the access token for production to ensure proper authorization
     const responsePayload = {
       id: result.id,
-      ...(process.env.NODE_ENV === "production"
-        ? { access_token: MP_ACCESS_TOKEN_ENV }
-        : { public_key: MP_PUBLIC_KEY_ENV }),
+      access_token: MP_ACCESS_TOKEN_ENV,
     };
     res.json(responsePayload);
   } catch (error) {
