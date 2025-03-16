@@ -17,7 +17,7 @@ app.use(cors());
 if (process.env.NODE_ENV === "production") {
   app.use(
     "/",
-    express.static(path.join(projectRoot, "distFront"), { redirect: false })
+    express.static(path.join(projectRoot, "distFront"), { index: "index.html" })
   );
 
   // Catch-all: sirve el index.html para las demás rutas
@@ -25,8 +25,15 @@ if (process.env.NODE_ENV === "production") {
     return res.sendFile(path.join(projectRoot, "distFront", "index.html"));
   });
 } else {
-  // En desarrollo puedes usar el servidor de desarrollo del front (por ejemplo, Vite)
-  console.log("Modo desarrollo: no se sirven archivos estáticos en backend");
+  // Modo desarrollo: se sirven los archivos estáticos desde el backend
+  app.use(
+    "/",
+    express.static(path.join(projectRoot, "distFront"), { index: "index.html" })
+  );
+  // Catch-all: sirve el index.html para las demás rutas
+  app.get("*", (req, res) => {
+    return res.sendFile(path.join(projectRoot, "distFront", "index.html"));
+  });
 }
 
 // Rutas de la API (disponibles en todos los entornos)
