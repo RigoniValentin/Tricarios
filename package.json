@@ -13,16 +13,16 @@
   "license": "ISC",
   "description": "",
   "_moduleAliases": {
-    "@server": "src/server",
-    "@config": "src/config",
-    "@services": "src/services",
-    "@repositories": "src/repositories",
-    "@routes": "src/routes",
-    "@controllers": "src/controllers",
-    "@models": "src/models",
-    "@middlewares": "src/middlewares",
-    "types": "src/types",
-    "app": "src/app.ts"
+    "@server": "dist/src/server",
+    "@config": "dist/src/config",
+    "@services": "dist/src/services",
+    "@repositories": "dist/src/repositories",
+    "@routes": "dist/src/routes",
+    "@controllers": "dist/src/controllers",
+    "@models": "dist/src/models",
+    "@middlewares": "dist/src/middlewares",
+    "types": "dist/src/types",
+    "app": "dist/src/app.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
