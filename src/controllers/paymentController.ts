@@ -191,6 +191,11 @@ export const createPreference = async (req: Request, res: Response) => {
   }
 
   try {
+    const successUrl =
+      process.env.NODE_ENV === "production"
+        ? `https://pilatestransmissionsarah.com/pagoAprobado?state=${userId}`
+        : `http://localhost:5173/pagoAprobado?state=${userId}`;
+
     const body = {
       items: req.body.map((item: any) => ({
         title: item.title,
@@ -199,7 +204,7 @@ export const createPreference = async (req: Request, res: Response) => {
         unit_price: item.unit_price,
       })),
       back_urls: {
-        success: `http://localhost:5173/pagoAprobado?state=${userId}`,
+        success: successUrl,
         failure: `https://martin-juncos.github.io/failure/`,
         pending: `https://martin-juncos.github.io/pending/`,
       },
