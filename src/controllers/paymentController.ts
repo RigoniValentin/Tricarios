@@ -61,7 +61,7 @@ export const createOrder = async (
       landing_page: "NO_PREFERENCE",
       user_action: "PAY_NOW",
       return_url: `${HOST}/api/v1/capture-order?state=${userId}`,
-      cancel_url: `http://localhost:5173/suscripciones`,
+      cancel_url: `http://localhost:3010/suscripciones`,
     },
   };
 
@@ -194,7 +194,7 @@ export const createPreference = async (req: Request, res: Response) => {
     const successUrl =
       process.env.NODE_ENV === "production"
         ? `https://pilatestransmissionsarah.com/pagoAprobado?state=${userId}`
-        : `http://localhost:5173/pagoAprobado?state=${userId}`;
+        : `http://localhost:3010/pagoAprobado?state=${userId}`;
 
     /*const successUrl =
       process.env.NODE_ENV === "production"
@@ -220,11 +220,8 @@ export const createPreference = async (req: Request, res: Response) => {
     const result = await preference.create({ body });
     console.log("Preference created:", result.id);
     // Always return the access token for production to ensure proper authorization
-    const responsePayload = {
-      id: result.id,
-      access_token: MP_ACCESS_TOKEN_ENV,
-    };
-    res.json(responsePayload);
+    console.log("Preference created:", result.id);
+    res.json({ id: result.id });
   } catch (error) {
     console.log("Error al procesar el pago (MP) :>>", error);
     res.status(500).json({ message: "Error al procesar el pago", error });
@@ -287,28 +284,18 @@ export const capturePreference = async (
       expirationDate
     );
 
-    // Preparar los datos de actualización:
-    const updateData = {
-      roles: [paidUserRole[0]],
-      subscription: {
-        transactionId: payment_id as string,
-        paymentDate,
-        expirationDate,
-      },
+    user.roles = [paidUserRole[0]];
+    user.subscription = {
+      transactionId: payment_id as string,
+      paymentDate,
+      expirationDate,
     };
-
-    console.log("capturePreference: Updating user with", updateData);
-    // Actualizamos el usuario usando el método del Service; este método debe encargarse de aplicar validaciones y guardar los cambios.
-    const updatedUser = await userService.updateUser(userId, updateData);
-    console.log(
-      "capturePreference: User subscription updated successfully:",
-      updatedUser
-    );
+    await user.save();
 
     const successUrl =
       process.env.NODE_ENV === "production"
         ? `https://pilatestransmissionsarah.com/pagoAprobado?state=${userId}`
-        : `http://localhost:5173/pagoAprobado?state=${userId}`;
+        : `http://localhost:3010/pagoAprobado?state=${userId}`;
     console.log("capturePreference: Redirecting to", successUrl);
     res.redirect(successUrl);
   } catch (error) {

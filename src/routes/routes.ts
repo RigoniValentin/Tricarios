@@ -61,7 +61,15 @@ export default () => {
   //#region Auth Routes
   router.post("/auth/register", checkRoles, registerUser);
   router.post("/auth/login", loginUser);
-  router.get("/auth/refresh", verifyToken, refreshToken);
+  router.get(
+    "/auth/refresh",
+    verifyToken,
+    (req, res, next) => {
+      res.set("Cache-Control", "no-store");
+      next();
+    },
+    refreshToken
+  );
   //#endregion
 
   //#region User Routes

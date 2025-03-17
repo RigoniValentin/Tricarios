@@ -75,6 +75,7 @@ export const refreshToken = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("refreshToken called, user:", req.currentUser);
     // Verificar que req.currentUser exista
     if (!req.currentUser || !req.currentUser._id) {
       res.status(401).json({ message: "Unauthorized" });

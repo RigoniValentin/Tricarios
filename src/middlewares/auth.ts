@@ -33,6 +33,7 @@ export const verifyToken = async (
     }
 
     req.currentUser = getUser;
+    console.log("Token verified, user:", req.currentUser);
     next();
   } catch (error: any) {
     console.log("error :>> ", error);
