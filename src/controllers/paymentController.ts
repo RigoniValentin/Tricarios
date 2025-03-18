@@ -44,6 +44,11 @@ export const createOrder = async (
     return;
   }
 
+  const baseUrl =
+    process.env.NODE_ENV === "production"
+      ? "https://pilatestransmissionsarah.com"
+      : "http://localhost:3010";
+
   const order = {
     intent: "CAPTURE",
     purchase_units: [
@@ -58,8 +63,8 @@ export const createOrder = async (
       brand_name: "Pilates Transmission Sarah",
       landing_page: "NO_PREFERENCE",
       user_action: "PAY_NOW",
-      return_url: `${HOST}/api/v1/capture-order?state=${userId}`, // Ruta del backend para capturar la orden
-      cancel_url: `${HOST}/cancel-payment`, // Ruta del backend para manejar cancelaciones
+      return_url: `${baseUrl}/api/v1/capture-order?state=${userId}`, // Ruta del backend para capturar la orden
+      cancel_url: `${baseUrl}/cancel-payment`, // Ruta del backend para manejar cancelaciones
     },
   };
 
