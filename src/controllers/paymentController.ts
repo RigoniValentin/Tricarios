@@ -5,7 +5,6 @@ import { UserService } from "@services/userService";
 import { UserRepository } from "@repositories/userRepository";
 import { RolesRepository } from "@repositories/rolesRepository";
 import { RolesService } from "@services/rolesService";
-import mongoose, { Schema } from "mongoose";
 import { Preference, MercadoPagoConfig } from "mercadopago";
 
 // Crear una instancia de UserServicev
@@ -29,7 +28,6 @@ const MP_PUBLIC_KEY_ENV =
 const mercadoPagoClient = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN_ENV as string,
 });
-console.log("Using MercadoPago access token:", MP_ACCESS_TOKEN_ENV);
 
 //#region PayPal
 export const createOrder = async (
@@ -60,8 +58,8 @@ export const createOrder = async (
       brand_name: "Pilates Transmission Sarah",
       landing_page: "NO_PREFERENCE",
       user_action: "PAY_NOW",
-      return_url: `${HOST}/api/v1/capture-order?state=${userId}`,
-      cancel_url: `http://localhost:3010/suscripciones`,
+      return_url: `${HOST}/api/v1/capture-order?state=${userId}`, // Ruta del backend para capturar la orden
+      cancel_url: `${HOST}/cancel-payment`, // Ruta del backend para manejar cancelaciones
     },
   };
 
@@ -165,7 +163,7 @@ export const captureOrder = async (
     };
     await user.save();
 
-    res.redirect("http://localhost:5173/pagoAprobado");
+    res.redirect(`${HOST}/pagoAprobado`);
   } catch (error) {
     console.error("Error capturing order:", error);
     res.status(500).json({ message: "Error processing payment", error });
@@ -195,11 +193,6 @@ export const createPreference = async (req: Request, res: Response) => {
       process.env.NODE_ENV === "production"
         ? `https://pilatestransmissionsarah.com/pagoAprobado?state=${userId}`
         : `http://localhost:3010/pagoAprobado?state=${userId}`;
-
-    /*const successUrl =
-      process.env.NODE_ENV === "production"
-        ? `http://localhost:5173/pagoAprobado?state=${userId}`
-        : `http://localhost:5173/pagoAprobado?state=${userId}`;*/
 
     const body = {
       items: req.body.map((item: any) => ({

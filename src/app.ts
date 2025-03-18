@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3010;
 
 export const HOST =
   process.env.NODE_ENV === "production"
-    ? process.env.HOST
+    ? process.env.HOST || "https://pilatestransmissionsarah.com"
     : "http://localhost:" + PORT;
 
 app.listen(PORT, () => {
