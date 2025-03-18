@@ -10,7 +10,7 @@ export const PAYPAL_API_SECRET = process.env.PAYPAL_API_SECRET;
 // Use production API if in production; otherwise use sandbox.
 export const PAYPAL_API =
   process.env.NODE_ENV === "production"
-    ? "https://api-m.paypal.com"
+    ? "https://api-m.sandbox.paypal.com" /*"https://api-m.paypal.com"*/
     : "https://api-m.sandbox.paypal.com";
 export const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 

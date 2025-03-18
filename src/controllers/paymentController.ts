@@ -47,7 +47,7 @@ export const createOrder = async (
   const baseUrl =
     process.env.NODE_ENV === "production"
       ? "https://pilatestransmissionsarah.com"
-      : "http://localhost:3010";
+      : "https://pilatestransmissionsarah.com";
 
   const order = {
     intent: "CAPTURE",
