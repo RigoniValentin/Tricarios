@@ -1,5 +1,6 @@
 import { Query } from "types/RepositoryTypes";
 import { IUserRepository, IUserService, User } from "types/UserTypes";
+import { UserModel } from "../models/Users";
 
 export class UserService implements IUserService {
   private userRepository: IUserRepository;
@@ -39,5 +40,12 @@ export class UserService implements IUserService {
     }
     // Comprueba si la fecha de expiración es mayor a la fecha actual
     return new Date(user.subscription.expirationDate) > new Date();
+  }
+
+  async findUserByResetToken(token: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
   }
 }

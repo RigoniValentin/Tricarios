@@ -18,7 +18,10 @@ export interface User extends Document {
     expirationDate: Date;
   };
   couponUsed?: boolean;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   comparePassword(password: string): Promise<boolean>;
+  createdAt: Date; // added to represent registration date
 }
 
 export interface IUserRepository extends Repository<User> {
@@ -30,6 +33,7 @@ export interface IUserService {
   findUsers(Query?: Query): Promise<User[]>;
   findUserById(id: string): Promise<User | null>;
   findUserByEmail(email: string): Promise<User | null>;
+  findUserByResetToken(token: string): Promise<User | null>;
   updateUser(id: string, user: Partial<User>): Promise<User | null>;
   deleteUser(id: string): Promise<boolean>;
 }

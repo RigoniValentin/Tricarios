@@ -9,6 +9,7 @@ export class UserRepository implements IUserRepository {
   }
 
   async find(query?: Query): Promise<User[]> {
+    // The find() method returns documents including 'createdAt' due to timestamps in the schema.
     return await UserModel.find(query || {})
       .populate("roles")
       .exec();

@@ -86,3 +86,32 @@ export const deleteUser = async (
     res.status(500).json(error);
   }
 };
+
+export const getUsersSubscriptionInfo = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const users = await userService.findUsers();
+    const info = users.map((user) => {
+      // A user is considered paid if a subscription exists and the expiration date is in the future
+      const paid =
+        user.subscription &&
+        new Date(user.subscription.expirationDate) > new Date();
+      return {
+        email: user.email,
+        username: user.username,
+        registeredAt: user.createdAt, // timestamps from Mongoose
+        paid,
+        licenseExpiration: user.subscription
+          ? user.subscription.expirationDate
+          : null,
+      };
+    });
+    res.json(info);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error retrieving subscription info", error });
+  }
+};

@@ -48,6 +48,9 @@ const UserSchema: Schema = new Schema<User>(
     age: {
       type: Number,
     },
+    // Nuevos campos para recuperación de contraseña
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true, versionKey: false }
 );
