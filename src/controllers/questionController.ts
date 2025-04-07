@@ -27,20 +27,44 @@ export const createQuestion = async (
 };
 
 // Endpoint para que admin responda una pregunta
-export const answerQuestion = async (
+// Endpoint para responder con el primer video
+export const answerQuestionVideo1 = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { answerUrl } = req.body;
-    if (!answerUrl) {
-      res
-        .status(400)
-        .json({ message: "El link de la respuesta es obligatorio." });
+    const { videoUrl } = req.body;
+    if (!videoUrl || !videoUrl.trim()) {
+      res.status(400).json({ message: "El link del video es obligatorio." });
       return;
     }
-    const answered = await questionsService.answerQuestion(id, answerUrl);
+    const answered = await questionsService.answerQuestionVideo1(id, videoUrl);
+    if (!answered) {
+      res.status(404).json({ message: "Pregunta no encontrada." });
+      return;
+    }
+    res.json(answered);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: error instanceof Error ? error.message : error });
+  }
+};
+
+// Endpoint para responder con el segundo video
+export const answerQuestionVideo2 = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { videoUrl } = req.body;
+    if (!videoUrl || !videoUrl.trim()) {
+      res.status(400).json({ message: "El link del video es obligatorio." });
+      return;
+    }
+    const answered = await questionsService.answerQuestionVideo2(id, videoUrl);
     if (!answered) {
       res.status(404).json({ message: "Pregunta no encontrada." });
       return;

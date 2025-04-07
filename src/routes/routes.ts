@@ -25,7 +25,8 @@ import { getPermissions, verifyToken } from "@middlewares/auth";
 import { checkRoles } from "@middlewares/roles";
 import { checkSubscription } from "@middlewares/checkSubscription";
 import {
-  answerQuestion,
+  answerQuestionVideo1,
+  answerQuestionVideo2,
   createQuestion,
   findQuestions,
   rejectQuestion,
@@ -54,6 +55,7 @@ import {
   createPreference,
 } from "@controllers/paymentController";
 import { sendResetPasswordEmail } from "@services/emailService";
+import { getExamples, saveExamples } from "@controllers/exampleController";
 import { get } from "mongoose";
 
 const router = Router();
@@ -117,11 +119,18 @@ export default () => {
     findQuestions
   );
   router.put(
-    "/questions/:id/answer",
+    "/questions/:id/answer/1",
     verifyToken,
     checkSubscription,
     getPermissions,
-    answerQuestion
+    answerQuestionVideo1
+  );
+  router.put(
+    "/questions/:id/answer/2",
+    verifyToken,
+    checkSubscription,
+    getPermissions,
+    answerQuestionVideo2
   );
   router.put("/questions/:id/reject", verifyToken, rejectQuestion);
   //#endregion
@@ -196,7 +205,14 @@ export default () => {
   });
   // #endregion
 
+  // #region Coupons Routes
   router.post("/apply-coupon", verifyToken, applyCoupon);
+  // #endregion
+
+  // #region Example Routes
+  router.get("/examples", getExamples);
+  router.put("/examples", saveExamples);
+  // #endregion
 
   return router;
 };

@@ -7,12 +7,13 @@ const QuestionSchema: Schema = new Schema<Question>(
     category: { type: String, required: true },
     status: {
       type: String,
-      enum: ["pending", "answered", "rejected"], // se agrega "rejected"
+      enum: ["pending", "answered", "rejected"],
       default: "pending",
     },
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    answerUrl: { type: String, default: undefined }, // nueva propiedad
-    rejectComment: { type: String, default: undefined }, // <-- nueva propiedad
+    // Se reemplaza answerUrl por answerUrls que es un arreglo de strings.
+    answerUrls: { type: [String], default: [] },
+    rejectComment: { type: String, default: undefined },
   },
   { timestamps: true, versionKey: false }
 );
