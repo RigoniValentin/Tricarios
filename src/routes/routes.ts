@@ -6,6 +6,8 @@ import {
   updateUser,
   deleteUser,
   getUsersSubscriptionInfo,
+  updateUserCapacitations,
+  updateUserCapacitationsByEmail,
 } from "@controllers/userController";
 import {
   findRoles,
@@ -56,6 +58,7 @@ import {
 } from "@controllers/paymentController";
 import { sendResetPasswordEmail } from "@services/emailService";
 import { getExamples, saveExamples } from "@controllers/exampleController";
+import { getChatHistory, deleteChatHistory } from "@controllers/chatController";
 import { get } from "mongoose";
 
 const router = Router();
@@ -92,6 +95,18 @@ export default () => {
   router.get("/users/:id", verifyToken, getPermissions, findUserById);
   router.post("/users", verifyToken, getPermissions, checkRoles, createUser);
   router.put("/users/:id", verifyToken, getPermissions, updateUser);
+  router.put(
+    "/users/:id/capacitations",
+    verifyToken,
+    getPermissions,
+    updateUserCapacitations
+  );
+  router.put(
+    "/users/email/:email/capacitations",
+    verifyToken,
+    getPermissions,
+    updateUserCapacitationsByEmail
+  );
   router.delete("/users/:id", verifyToken, getPermissions, deleteUser);
   //#endregion
 
@@ -212,6 +227,14 @@ export default () => {
   // #region Example Routes
   router.get("/examples", getExamples);
   router.put("/examples", saveExamples);
+  // #endregion
+
+  // #region Chat Routes
+  // Obtener historial (para todos los usuarios)
+  router.get("/history", verifyToken, getChatHistory);
+
+  // Eliminar historial (acceso restringido, por ejemplo admin)
+  router.delete("/history", verifyToken, getPermissions, deleteChatHistory);
   // #endregion
 
   return router;

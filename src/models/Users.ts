@@ -48,6 +48,10 @@ const UserSchema: Schema = new Schema<User>(
     age: {
       type: Number,
     },
+    // Nuevos campos para capacitaciones:
+    capSeresArte: { type: Boolean, default: false },
+    capThr: { type: Boolean, default: false },
+    capPhr: { type: Boolean, default: false },
     // Nuevos campos para recuperación de contraseña
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
@@ -76,4 +80,5 @@ UserSchema.methods.toJSON = function () {
   delete userObj.password;
   return userObj;
 };
+
 export const UserModel = mongoose.model<User>("User", UserSchema);

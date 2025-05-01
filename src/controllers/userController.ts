@@ -94,7 +94,6 @@ export const getUsersSubscriptionInfo = async (
   try {
     const users = await userService.findUsers();
     const info = users.map((user) => {
-      // A user is considered paid if a subscription exists and the expiration date is in the future
       const paid =
         user.subscription &&
         new Date(user.subscription.expirationDate) > new Date();
@@ -106,6 +105,10 @@ export const getUsersSubscriptionInfo = async (
         licenseExpiration: user.subscription
           ? user.subscription.expirationDate
           : null,
+        // Nuevos campos para capacitaciones:
+        capSeresArte: user.capSeresArte || false,
+        capThr: user.capThr || false,
+        capPhr: user.capPhr || false,
       };
     });
     res.json(info);
@@ -113,5 +116,57 @@ export const getUsersSubscriptionInfo = async (
     res
       .status(500)
       .json({ message: "Error retrieving subscription info", error });
+  }
+};
+
+export const updateUserCapacitations = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    // Se esperan valores booleanos para los 3 permisos de capacitación
+    const { capSeresArte, capThr, capPhr } = req.body;
+    const updatedUser = await userService.updateUser(id, {
+      capSeresArte,
+      capThr,
+      capPhr,
+    });
+    if (!updatedUser) {
+      res.status(404).json({ message: "Usuario no encontrado." });
+      return;
+    }
+    res.json(updatedUser);
+  } catch (error: any) {
+    res
+      .status(500)
+      .json({ message: error instanceof Error ? error.message : error });
+  }
+};
+
+export const updateUserCapacitationsByEmail = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email } = req.params;
+    const { capSeresArte, capThr, capPhr } = req.body;
+    const updatedUser = await userService.updateUserCapacitationsByEmail(
+      email,
+      {
+        capSeresArte,
+        capThr,
+        capPhr,
+      }
+    );
+    if (!updatedUser) {
+      res.status(404).json({ message: "Usuario no encontrado." });
+      return;
+    }
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : error,
+    });
   }
 };

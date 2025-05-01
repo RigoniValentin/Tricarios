@@ -57,9 +57,12 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         nationality: user.nationality,
         locality: user.locality,
         age: user.age,
+        capSeresArte: user.capSeresArte || false,
+        capThr: user.capThr || false,
+        capPhr: user.capPhr || false,
       },
       jwtSecret,
-      { expiresIn: "2h" }
+      { expiresIn: "3h" }
     );
 
     //const decodedPayload = jwt.decode(token);

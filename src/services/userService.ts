@@ -25,6 +25,10 @@ export class UserService implements IUserService {
     return this.userRepository.findOne({ email });
   }
 
+  async findUserByResetToken(token: string): Promise<User | null> {
+    return this.userRepository.findOne({ resetPasswordToken: token });
+  }
+
   async updateUser(id: string, user: Partial<User>): Promise<User | null> {
     return this.userRepository.update(id, user);
   }
@@ -42,10 +46,15 @@ export class UserService implements IUserService {
     return new Date(user.subscription.expirationDate) > new Date();
   }
 
-  async findUserByResetToken(token: string): Promise<User | null> {
-    return this.userRepository.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: new Date() },
-    });
+  // Nuevo método para actualizar las capacitaciones por email
+  async updateUserCapacitationsByEmail(
+    email: string,
+    capacitations: { capSeresArte: boolean; capThr: boolean; capPhr: boolean }
+  ): Promise<User | null> {
+    const user = await this.findUserByEmail(email);
+    if (!user) {
+      return null;
+    }
+    return this.userRepository.update(user.id, capacitations);
   }
 }

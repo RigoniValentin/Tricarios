@@ -12,6 +12,10 @@ export interface User extends Document {
   age: number;
   roles?: Roles[];
   permissions?: string[];
+  // Nuevos campos para capacitaciones:
+  capSeresArte?: boolean;
+  capThr?: boolean;
+  capPhr?: boolean;
   subscription?: {
     transactionId: string;
     paymentDate: Date;
@@ -21,7 +25,7 @@ export interface User extends Document {
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   comparePassword(password: string): Promise<boolean>;
-  createdAt: Date; // added to represent registration date
+  createdAt: Date;
 }
 
 export interface IUserRepository extends Repository<User> {
@@ -30,10 +34,15 @@ export interface IUserRepository extends Repository<User> {
 
 export interface IUserService {
   createUser(user: User): Promise<User>;
-  findUsers(Query?: Query): Promise<User[]>;
+  findUsers(query?: Query): Promise<User[]>;
   findUserById(id: string): Promise<User | null>;
   findUserByEmail(email: string): Promise<User | null>;
   findUserByResetToken(token: string): Promise<User | null>;
   updateUser(id: string, user: Partial<User>): Promise<User | null>;
   deleteUser(id: string): Promise<boolean>;
+  // Nuevo método para actualizar las capacitaciones usando el email del usuario
+  updateUserCapacitationsByEmail(
+    email: string,
+    capacitations: { capSeresArte: boolean; capThr: boolean; capPhr: boolean }
+  ): Promise<User | null>;
 }
