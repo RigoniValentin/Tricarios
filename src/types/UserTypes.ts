@@ -16,6 +16,7 @@ export interface User extends Document {
   capSeresArte?: boolean;
   capThr?: boolean;
   capPhr?: boolean;
+  capMat?: boolean;
   subscription?: {
     transactionId: string;
     paymentDate: Date;

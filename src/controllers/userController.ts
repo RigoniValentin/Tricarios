@@ -109,6 +109,7 @@ export const getUsersSubscriptionInfo = async (
         capSeresArte: user.capSeresArte || false,
         capThr: user.capThr || false,
         capPhr: user.capPhr || false,
+        capMat: user.capMat || false,
       };
     });
     res.json(info);
@@ -125,12 +126,13 @@ export const updateUserCapacitations = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    // Se esperan valores booleanos para los 3 permisos de capacitación
-    const { capSeresArte, capThr, capPhr } = req.body;
+    // Se esperan valores booleanos para los 4 permisos de capacitación
+    const { capSeresArte, capThr, capPhr, capMat } = req.body;
     const updatedUser = await userService.updateUser(id, {
       capSeresArte,
       capThr,
       capPhr,
+      capMat,
     });
     if (!updatedUser) {
       res.status(404).json({ message: "Usuario no encontrado." });
@@ -150,14 +152,15 @@ export const updateUserCapacitationsByEmail = async (
 ): Promise<void> => {
   try {
     const { email } = req.params;
-    const { capSeresArte, capThr, capPhr } = req.body;
+    const { capSeresArte, capThr, capPhr, capMat } = req.body;
     const updatedUser = await userService.updateUserCapacitationsByEmail(
       email,
       {
         capSeresArte,
         capThr,
         capPhr,
-      }
+        capMat,
+      } as any
     );
     if (!updatedUser) {
       res.status(404).json({ message: "Usuario no encontrado." });

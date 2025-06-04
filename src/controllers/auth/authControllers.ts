@@ -60,6 +60,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         capSeresArte: user.capSeresArte || false,
         capThr: user.capThr || false,
         capPhr: user.capPhr || false,
+        capMat: user.capMat || false,
       },
       jwtSecret,
       { expiresIn: "3h" }
