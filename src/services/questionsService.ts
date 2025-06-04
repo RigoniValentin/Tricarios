@@ -19,13 +19,13 @@ export class QuestionsService implements IQuestionService {
     });
 
     console.log("Pending count", pendingCount);
-    /*
+
     if (pendingCount >= 3) {
       throw new Error(
         "Se alcanzó el límite de 3 preguntas pendientes para esta categoría. Espere a que el administrador responda alguna para agregar otra."
       );
     }
-*/
+
     question.status = "pending";
     return this.questionRepository.create(question);
   }
