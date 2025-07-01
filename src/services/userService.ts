@@ -49,7 +49,15 @@ export class UserService implements IUserService {
   // Nuevo método para actualizar las capacitaciones por email
   async updateUserCapacitationsByEmail(
     email: string,
-    capacitations: { capSeresArte: boolean; capThr: boolean; capPhr: boolean }
+    capacitations: {
+      capSeresArte: boolean;
+      capThr: boolean;
+      capPhr: boolean;
+      capMat: boolean;
+      capUor: boolean;
+      capReh: boolean;
+      capViv: boolean;
+    }
   ): Promise<User | null> {
     const user = await this.findUserByEmail(email);
     if (!user) {

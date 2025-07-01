@@ -1,0 +1,64 @@
+### Obtener todas las categorías
+GET http://localhost:3010/api/v1/categories
+Content-Type: application/json
+
+###
+
+### Obtener categoría por ID
+GET http://localhost:3010/api/v1/categories/{{categoryId}}
+Content-Type: application/json
+
+###
+
+### Crear nueva categoría
+POST http://localhost:3010/api/v1/categories
+Content-Type: application/json
+
+{
+  "name": "Deportivo",
+  "description": "Equipos y accesorios especializados para la práctica de Pilates"
+}
+
+###
+
+### Crear categoría de ropa
+POST http://localhost:3010/api/v1/categories
+Content-Type: application/json
+
+{
+  "name": "Ropa Deportiva",
+  "description": "Ropa cómoda y funcional para ejercitarse"
+}
+
+###
+
+### Crear categoría de nutrición
+POST http://localhost:3010/api/v1/categories
+Content-Type: application/json
+
+{
+  "name": "Nutrición y Suplementos",
+  "description": "Productos nutricionales y suplementos para complementar el ejercicio"
+}
+
+###
+
+### Actualizar categoría
+PUT http://localhost:3010/api/v1/categories/{{categoryId}}
+Content-Type: application/json
+
+{
+  "name": "Equipos de Pilates Profesional",
+  "description": "Equipos profesionales y accesorios especializados para la práctica de Pilates"
+}
+
+###
+
+### Eliminar categoría (eliminación directa de la base de datos)
+DELETE http://localhost:3010/api/v1/categories/{{categoryId}}
+Content-Type: application/json
+
+###
+Content-Type: application/json
+
+###

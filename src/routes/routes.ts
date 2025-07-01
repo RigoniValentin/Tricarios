@@ -48,6 +48,9 @@ import {
   getCupos,
   getTrainings,
 } from "@controllers/trainingController";
+// Importar rutas de la tienda
+import categoryRoutes from "./categoryRoutes";
+import productRoutes from "./productRoutes";
 import {
   applyCoupon,
   cancelPayment,
@@ -235,6 +238,14 @@ export default () => {
 
   // Eliminar historial (acceso restringido, por ejemplo admin)
   router.delete("/history", verifyToken, getPermissions, deleteChatHistory);
+  // #endregion
+
+  // #region Store Routes
+  // Rutas de categorías de la tienda
+  router.use("/categories", categoryRoutes);
+
+  // Rutas de productos de la tienda
+  router.use("/products", productRoutes);
   // #endregion
 
   return router;

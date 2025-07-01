@@ -61,6 +61,9 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         capThr: user.capThr || false,
         capPhr: user.capPhr || false,
         capMat: user.capMat || false,
+        capUor: user.capUor || false,
+        capReh: user.capReh || false,
+        capViv: user.capViv || false,
       },
       jwtSecret,
       { expiresIn: "3h" }
@@ -106,8 +109,9 @@ export const refreshToken = async (
         age: updatedUser.age,
       },
       jwtSecret,
-      { expiresIn: "2h" }
+      { expiresIn: "3h" }
     );
+
     console.log("New token:", newToken);
     res.json({ token: newToken });
   } catch (error: any) {

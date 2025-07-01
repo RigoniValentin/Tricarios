@@ -1,0 +1,246 @@
+### Obtener todos los productos
+GET http://localhost:3010/api/v1/products
+Content-Type: application/json
+
+###
+
+### Obtener productos con filtros y paginación
+GET http://localhost:3010/api/v1/products?page=1&limit=5&sortBy=price&sortOrder=asc&inStock=true
+Content-Type: application/json
+
+###
+
+### Buscar productos por nombre o descripción
+GET http://localhost:3010/api/v1/products?search=pilates&page=1&limit=10
+Content-Type: application/json
+
+###
+
+### Filtrar productos por categoría y rango de precio
+GET http://localhost:3010/api/v1/products?category={{categoryId}}&minPrice=50&maxPrice=200
+Content-Type: application/json
+
+###
+
+### Obtener producto por ID
+GET http://localhost:3010/api/v1/products/{{productId}}
+Content-Type: application/json
+
+###
+
+### Crear nuevo producto (sin imágenes - ESTO FALLARÁ porque las imágenes son obligatorias)
+POST http://localhost:3010/api/v1/products
+Content-Type: application/json
+
+{
+  "name": "Reformer Pilates Profesional",
+  "price": 2500.00,
+  "description": "Reformer de Pilates profesional con resortes ajustables, perfecto para estudios y uso doméstico avanzado.",
+  "category": "685de93390621e748d11f554",
+  "stock": 5
+}
+
+### NOTA: Para crear/actualizar productos con imágenes (OBLIGATORIO), usar multipart/form-data
+### Usar Postman, Thunder Client, o curl para enviar archivos
+### 
+### Ejemplo con curl:
+### curl -X POST http://localhost:3010/api/v1/products \
+###   -F "name=Reformer Pilates Profesional" \
+###   -F "price=2500.00" \
+###   -F "description=Reformer de Pilates profesional con resortes ajustables" \
+###   -F "category=685de93390621e748d11f554" \
+###   -F "stock=5" \
+###   -F "images=@/ruta/a/imagen1.jpg" \
+###   -F "images=@/ruta/a/imagen2.jpg"
+
+###
+
+### Crear producto de ropa
+POST http://localhost:3010/api/v1/products
+Content-Type: application/json
+
+{
+  "name": "Leggings Deportivos Premium",
+  "price": 85.00,
+  "description": "Leggings de alta calidad con tejido transpirable y ajuste perfecto para ejercicios de Pilates y yoga.",
+  "category": "{{categoryId}}",
+  "stock": 20
+}
+
+###
+
+### Crear producto de nutrición
+POST http://localhost:3010/api/v1/products
+Content-Type: application/json
+
+{
+  "name": "Proteína Vegana en Polvo",
+  "price": 45.00,
+  "description": "Proteína en polvo 100% vegana, sabor vainilla, ideal para recuperación post-ejercicio.",
+  "category": "{{categoryId}}",
+  "stock": 15
+}
+
+###
+
+### Actualizar producto (sin imágenes - MANTIENE las imágenes existentes)
+PUT http://localhost:3010/api/v1/products/{{productId}}
+Content-Type: application/json
+
+{
+  "name": "Reformer Pilates Profesional V2",
+  "price": 2750.00,
+  "description": "Reformer de Pilates profesional mejorado con resortes ajustables y nuevas características ergonómicas.",
+  "stock": 8
+}
+
+### NOTA: Para actualizar producto CON NUEVAS IMÁGENES
+### Usar replaceImages: true para REEMPLAZAR todas las imágenes anteriores
+### Usar replaceImages: false (o no enviar) para AGREGAR a las imágenes existentes
+### Usar multipart/form-data
+### 
+### Ejemplo REEMPLAZAR imágenes (curl):
+### curl -X PUT http://localhost:3010/api/v1/products/PRODUCT_ID \
+###   -F "name=Reformer Pilates Profesional V2" \
+###   -F "price=2750.00" \
+###   -F "description=Reformer mejorado con nuevas características" \
+###   -F "stock=8" \
+###   -F "replaceImages=true" \
+###   -F "images=@/ruta/a/nueva_imagen1.jpg" \
+###   -F "images=@/ruta/a/nueva_imagen2.jpg"
+###
+### Ejemplo AGREGAR imágenes (curl):
+### curl -X PUT http://localhost:3010/api/v1/products/PRODUCT_ID \
+###   -F "replaceImages=false" \
+###   -F "images=@/ruta/a/imagen_adicional1.jpg" \
+###   -F "images=@/ruta/a/imagen_adicional2.jpg"
+
+###
+
+### Actualizar solo el stock de un producto
+PUT http://localhost:3010/api/v1/products/{{productId}}/stock
+Content-Type: application/json
+
+{
+  "stock": 10,
+  "operation": "set"
+}
+
+###
+
+### Aumentar stock
+PUT http://localhost:3010/api/v1/products/{{productId}}/stock
+Content-Type: application/json
+
+{
+  "stock": 5,
+  "operation": "add"
+}
+
+###
+
+### Reducir stock
+PUT http://localhost:3010/api/v1/products/{{productId}}/stock
+Content-Type: application/json
+
+{
+  "stock": 2,
+  "operation": "subtract"
+}
+
+###
+
+### Eliminar producto (eliminación directa de la base de datos)
+DELETE http://localhost:3010/api/v1/products/{{productId}}
+Content-Type: application/json
+
+###
+
+# IMPORTANTE: SISTEMA DE 4 SLOTS DE IMÁGENES PARA PRODUCTOS
+#
+# 1. CREACIÓN DE PRODUCTOS:
+#    - Las imágenes son OBLIGATORIAS al crear un producto
+#    - Máximo 4 imágenes por producto (sistema de slots)
+#    - La primera imagen se establece automáticamente como imagen principal
+#    - Usar multipart/form-data con el campo "images"
+#    - Formatos soportados: JPEG, PNG, WebP, GIF (máximo 5MB por imagen)
+#
+# 2. ACTUALIZACIÓN DE PRODUCTOS:
+#    - Usar el parámetro "replaceImages" para controlar el comportamiento:
+#      * replaceImages: true  -> REEMPLAZA todas las imágenes anteriores (máximo 4)
+#      * replaceImages: false -> AGREGA a las imágenes existentes (hasta completar 4)
+#    - Si NO se envían imágenes: MANTIENE las imágenes existentes
+#    - El producto debe tener al menos una imagen siempre
+#    - Si se exceden las 4 imágenes, se mantienen solo las primeras 4
+#
+# 3. ELIMINACIÓN DE PRODUCTOS:
+#    - ELIMINACIÓN LÓGICA (por defecto): Marca isActive = false, el producto NO aparece en listados
+#      DELETE /api/v1/products/ID_PRODUCTO
+#    - ELIMINACIÓN PERMANENTE: Borra completamente de la BD y elimina archivos de imagen
+#      DELETE /api/v1/products/ID_PRODUCTO?permanent=true
+#    - REACTIVACIÓN: Vuelve a activar un producto eliminado lógicamente
+#      PUT /api/v1/products/ID_PRODUCTO/activate
+#
+# 4. LISTADO DE PRODUCTOS:
+#    - POR DEFECTO: Solo muestra productos activos (isActive = true)
+#      GET /api/v1/products
+#    - PRODUCTOS INACTIVOS: Solo productos eliminados lógicamente
+#      GET /api/v1/products?isActive=false
+#    - TODOS LOS PRODUCTOS: Activos e inactivos juntos
+#      GET /api/v1/products?isActive (sin valor)
+#
+# 5. ESTRUCTURA DEL PRODUCTO:
+#    - Campo "image": URL de la imagen principal (automático)
+#    - Campo "images": Array de URLs de todas las imágenes (máximo 4)
+#    - Campo "isActive": true/false (controla visibilidad en listados)
+#    - La imagen principal siempre es la primera del array
+#
+# 6. EJEMPLOS DE USO:
+#
+# Crear producto con imágenes (curl):
+# curl -X POST http://localhost:3010/api/v1/products \
+#   -F "name=Esterilla Yoga Premium" \
+#   -F "price=75.50" \
+#   -F "description=Esterilla antideslizante de alta calidad" \
+#   -F "category=ID_DE_CATEGORIA" \
+#   -F "stock=15" \
+#   -F "images=@imagen1.jpg" \
+#   -F "images=@imagen2.jpg" \
+#   -F "images=@imagen3.jpg" \
+#   -F "images=@imagen4.jpg"
+#
+# Actualizar producto REEMPLAZANDO todas las imágenes (curl):
+# curl -X PUT http://localhost:3010/api/v1/products/ID_PRODUCTO \
+#   -F "name=Esterilla Yoga Premium V2" \
+#   -F "price=85.00" \
+#   -F "replaceImages=true" \
+#   -F "images=@nueva_imagen1.jpg" \
+#   -F "images=@nueva_imagen2.jpg"
+#
+# Actualizar producto AGREGANDO imágenes (curl):
+# curl -X PUT http://localhost:3010/api/v1/products/ID_PRODUCTO \
+#   -F "replaceImages=false" \
+#   -F "images=@imagen_adicional.jpg"
+#
+# Actualizar producto SIN cambiar imágenes (JSON):
+# PUT http://localhost:3010/api/v1/products/ID_PRODUCTO
+# Content-Type: application/json
+# {
+#   "name": "Esterilla Yoga Premium V2",
+#   "price": 85.00,
+#   "stock": 20
+# }
+#
+# 7. VALIDACIONES Y LÍMITES:
+#    - Máximo 4 imágenes por producto
+#    - Tamaño máximo: 5MB por imagen
+#    - Tipos permitidos: JPEG, PNG, WebP, GIF
+#    - Al menos una imagen obligatoria
+#    - Limpieza automática de archivos temporales en caso de error
+#
+# 8. ACCESO A IMÁGENES:
+#    - Las imágenes se sirven desde: http://localhost:3010/uploads/products/nombre_archivo.jpg
+#    - Los productos devuelven URLs completas en los campos "image" e "images"
+#    - Logging detallado para debugging y monitoreo
+
+###

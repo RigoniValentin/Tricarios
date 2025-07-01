@@ -14,6 +14,9 @@ app.use(express.json());
 app.use(morgan("dev"));
 app.use(cors());
 
+// Servir archivos de imágenes de productos
+app.use("/uploads", express.static(path.join(projectRoot, "uploads")));
+
 // Registrar rutas de la API
 app.use("/api/v1", routes());
 

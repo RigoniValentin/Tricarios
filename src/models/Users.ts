@@ -53,6 +53,9 @@ const UserSchema: Schema = new Schema<User>(
     capThr: { type: Boolean, default: false },
     capPhr: { type: Boolean, default: false },
     capMat: { type: Boolean, default: false },
+    capUor: { type: Boolean, default: false },
+    capReh: { type: Boolean, default: false },
+    capViv: { type: Boolean, default: false },
     // Nuevos campos para recuperación de contraseña
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
