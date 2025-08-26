@@ -12,8 +12,8 @@ const ALLOWED_MIME_TYPES = [
   "image/gif",
 ];
 
-// Tamaño máximo por archivo (5MB)
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+// Tamaño máximo por archivo (50MB)
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 // Máximo número de archivos
 const MAX_FILES = 4;
