@@ -8,7 +8,7 @@ const UserSchema: Schema = new Schema<User>(
       type: String,
       required: true,
     },
-    username: {
+    lastname: {
       type: String,
       required: true,
       unique: true,
@@ -17,6 +17,11 @@ const UserSchema: Schema = new Schema<User>(
       type: String,
       required: true,
       unique: true,
+    },
+    whatsapp: {
+      type: String,
+      required: [true, "El número de WhatsApp es requerido"],
+      trim: true,
     },
     password: {
       type: String,
@@ -33,32 +38,30 @@ const UserSchema: Schema = new Schema<User>(
         ref: "Roles",
       },
     ],
-    subscription: {
-      transactionId: { type: String },
-      paymentDate: { type: Date },
-      expirationDate: { type: Date },
-    },
-    couponUsed: { type: Boolean, default: false },
-    nationality: {
-      type: String,
-    },
-    locality: {
-      type: String,
-    },
     age: {
       type: Number,
     },
-    // Nuevos campos para capacitaciones:
-    capSeresArte: { type: Boolean, default: false },
-    capThr: { type: Boolean, default: false },
-    capPhr: { type: Boolean, default: false },
-    capMat: { type: Boolean, default: false },
-    capUor: { type: Boolean, default: false },
-    capReh: { type: Boolean, default: false },
-    capViv: { type: Boolean, default: false },
-    // Nuevos campos para recuperación de contraseña
-    resetPasswordToken: { type: String },
-    resetPasswordExpires: { type: Date },
+    subscription: {
+      type: {
+        type: String,
+        enum: ["monthly", "annual"],
+      },
+      status: {
+        type: String,
+        enum: ["active", "inactive", "cancelled", "expired"],
+        default: "inactive",
+      },
+      expirationDate: {
+        type: Date,
+      },
+      paymentId: {
+        type: String,
+      },
+    },
+    couponUsed: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true, versionKey: false }
 );

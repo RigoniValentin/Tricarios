@@ -1,64 +1,312 @@
-### Obtener todas las categorías
-GET http://localhost:3010/api/v1/categories
+### Variables
+@baseUrl = http://localhost:3010/api/v1
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4OGQzNzgxNWYwZGExOWRmYTlmMmI5ZiIsIm5hbWUiOiJWYWxlbnRpbkFkbWluIiwibGFzdG5hbWUiOiJSaWdvbmlBZG1pbiIsIndoYXRzYXBwIjoiMzU4NTAwOTg4NyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwicm9sZXMiOlt7Il9pZCI6IjY4OGQzM2NiMmUyZjkzM2QyNzYyN2QwNCIsIm5hbWUiOiJhZG1pbiIsInBlcm1pc3Npb25zIjpbImFkbWluX2dyYW50ZWQiXSwiY3JlYXRlZEF0IjoiMjAyNS0wOC0wMVQyMTozODoxOS43NTRaIiwidXBkYXRlZEF0IjoiMjAyNS0wOC0wMVQyMTozODoxOS43NTRaIn1dLCJhZ2UiOjI1LCJpYXQiOjE3NTQzNTMwMTMsImV4cCI6MTc1NDM2MzgxM30.xQzIXOBAWBp7OpDmGf9Uv14CQGLT30Pb-dvXTKrhisA
+@categoryId = 674b3c3f41c6149cd597b683
+
+###############################################################################
+# 🏷️  TESTING ENDPOINTS DE CATEGORÍAS
+###############################################################################
+
+### 1. 📋 Obtener todas las categorías (Público)
+GET {{baseUrl}}/categories
 Content-Type: application/json
 
-###
-
-### Obtener categoría por ID
-GET http://localhost:3010/api/v1/categories/{{categoryId}}
+### 2. 📋 Obtener categorías con filtros básicos
+GET {{baseUrl}}/categories?page=1&limit=5&sortBy=name&sortOrder=asc
 Content-Type: application/json
 
-###
+### 3. 🔍 Buscar categorías por nombre
+GET {{baseUrl}}/categories?search=semillas
+Content-Type: application/json
 
-### Crear nueva categoría
-POST http://localhost:3010/api/v1/categories
+### 4. 📊 Obtener categorías ordenadas por cantidad de productos
+GET {{baseUrl}}/categories?sortBy=productCount&sortOrder=desc
+Content-Type: application/json
+
+### 5. 🔄 Obtener categorías y actualizar contadores
+GET {{baseUrl}}/categories?updateCounts=true
+Content-Type: application/json
+
+###############################################################################
+# 📖 OBTENER CATEGORÍA ESPECÍFICA
+###############################################################################
+
+### 6. 🎯 Obtener categoría por ID (Público)
+GET {{baseUrl}}/categories/{{categoryId}}
+Content-Type: application/json
+
+### 7. 🛍️ Obtener categoría con productos incluidos
+GET {{baseUrl}}/categories/{{categoryId}}?includeProducts=true
+Content-Type: application/json
+
+### 8. ❌ Test categoría inexistente
+GET {{baseUrl}}/categories/507f1f77bcf86cd799439999
+Content-Type: application/json
+
+###############################################################################
+# ➕ CREAR CATEGORÍAS (Requiere Admin)
+###############################################################################
+
+### 9. ✅ Crear categoría válida
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "name": "Deportivo",
-  "description": "Equipos y accesorios especializados para la práctica de Pilates"
+  "name": "Categoria de prueba",
+  "description": "Categoria de prueba",
+  "icon": "🌱",
+  "color": "from-green-400 to-green-600"
 }
 
-###
-
-### Crear categoría de ropa
-POST http://localhost:3010/api/v1/categories
+### 10. ✅ Crear categoría con valores por defecto
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "name": "Ropa Deportiva",
-  "description": "Ropa cómoda y funcional para ejercitarse"
+  "name": "Fertilizantes Orgánicos",
+  "description": "Los mejores fertilizantes naturales para un cultivo sustentable"
 }
 
-###
-
-### Crear categoría de nutrición
-POST http://localhost:3010/api/v1/categories
+### 11. ✅ Crear categoría con emoji y gradiente personalizado
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "name": "Nutrición y Suplementos",
-  "description": "Productos nutricionales y suplementos para complementar el ejercicio"
+  "name": "Accesorios de Cultivo",
+  "description": "Todo lo que necesitas para un cultivo exitoso",
+  "icon": "🛠️",
+  "color": "from-blue-500 to-purple-600"
 }
 
-###
-
-### Actualizar categoría
-PUT http://localhost:3010/api/v1/categories/{{categoryId}}
+### 12. ❌ Test crear sin autenticación
+POST {{baseUrl}}/categories
 Content-Type: application/json
 
 {
-  "name": "Equipos de Pilates Profesional",
-  "description": "Equipos profesionales y accesorios especializados para la práctica de Pilates"
+  "name": "Categoría Sin Auth",
+  "description": "Esta debería fallar"
 }
 
-###
-
-### Eliminar categoría (eliminación directa de la base de datos)
-DELETE http://localhost:3010/api/v1/categories/{{categoryId}}
+### 13. ❌ Test crear sin nombre (requerido)
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-###
+{
+  "description": "Categoría sin nombre"
+}
+
+### 14. ❌ Test crear sin descripción (requerida)
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-###
+{
+  "name": "Categoría Sin Descripción"
+}
+
+### 15. ❌ Test crear con nombre duplicado
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Semillas Premium",
+  "description": "Esta debería fallar por nombre duplicado"
+}
+
+###############################################################################
+# ✏️ ACTUALIZAR CATEGORÍAS (Requiere Admin)
+###############################################################################
+
+### 16. ✅ Actualizar nombre y descripción
+PUT {{baseUrl}}/categories/{{categoryId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Semillas Super Premium",
+  "description": "Las mejores semillas del mercado mundial"
+}
+
+### 17. ✅ Actualizar solo icono y color
+PUT {{baseUrl}}/categories/{{categoryId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "icon": "⭐",
+  "color": "from-gold-400 to-yellow-600"
+}
+
+### 18. ✅ Actualizar descripción únicamente
+PUT {{baseUrl}}/categories/{{categoryId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "description": "Descripción actualizada para reflejar la nueva calidad premium"
+}
+
+### 19. ❌ Test actualizar sin autenticación
+PUT {{baseUrl}}/categories/{{categoryId}}
+Content-Type: application/json
+
+{
+  "name": "Sin Auth"
+}
+
+### 20. ❌ Test actualizar categoría inexistente
+PUT {{baseUrl}}/categories/507f1f77bcf86cd799439999
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Categoría Inexistente"
+}
+
+### 21. ❌ Test actualizar con nombre duplicado
+PUT {{baseUrl}}/categories/{{categoryId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Fertilizantes Orgánicos"
+}
+
+###############################################################################
+# 🗑️ ELIMINAR CATEGORÍAS (Requiere Admin)
+###############################################################################
+
+### 22. ❌ Test eliminar categoría con productos (debería fallar)
+DELETE {{baseUrl}}/categories/{{categoryId}}
+Authorization: Bearer {{adminToken}}
+
+### 23. ✅ Eliminar categoría con productos (forzado)
+DELETE {{baseUrl}}/categories/{{categoryId}}?deleteProducts=true
+Authorization: Bearer {{adminToken}}
+
+### 24. ✅ Eliminar categoría vacía (sin productos)
+DELETE {{baseUrl}}/categories/{{categoryId}}
+Authorization: Bearer {{adminToken}}
+
+### 25. ❌ Test eliminar sin autenticación
+DELETE {{baseUrl}}/categories/{{categoryId}}
+
+### 26. ❌ Test eliminar categoría inexistente
+DELETE {{baseUrl}}/categories/507f1f77bcf86cd799439999
+Authorization: Bearer {{adminToken}}
+
+###############################################################################
+# 🔄 SINCRONIZACIÓN Y MANTENIMIENTO (Requiere Admin)
+###############################################################################
+
+### 27. 🔄 Actualizar contadores de productos manualmente
+PUT {{baseUrl}}/categories/update-counts
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 28. ❌ Test actualizar contadores sin autenticación
+PUT {{baseUrl}}/categories/update-counts
+Content-Type: application/json
+
+###############################################################################
+# 🧪 TESTS DE VALIDACIÓN Y LÍMITES
+###############################################################################
+
+### 29. ❌ Test nombre muy largo (>100 caracteres)
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation",
+  "description": "Nombre demasiado largo"
+}
+
+### 30. ❌ Test descripción muy larga (>500 caracteres)
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Descripción Larga",
+  "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+}
+
+### 31. ❌ Test icono muy largo (>10 caracteres)
+POST {{baseUrl}}/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Icono Largo",
+  "description": "Test con icono demasiado largo",
+  "icon": "🌱🌿🍃🌳🌲🌴🌵🌺🌻🌷🌹"
+}
+
+### 32. ✅ Test búsqueda case-insensitive
+GET {{baseUrl}}/categories?search=SEMILLAS
+Content-Type: application/json
+
+### 33. ✅ Test paginación límite máximo
+GET {{baseUrl}}/categories?limit=50
+Content-Type: application/json
+
+### 34. ❌ Test paginación límite excedido
+GET {{baseUrl}}/categories?limit=100
+Content-Type: application/json
+
+### 35. ✅ Test ordenamiento por diferentes campos
+GET {{baseUrl}}/categories?sortBy=createdAt&sortOrder=desc
+Content-Type: application/json
+
+###############################################################################
+# 📊 TESTS DE PERFORMANCE Y CARGA
+###############################################################################
+
+### 36. 🚀 Test carga masiva de categorías
+GET {{baseUrl}}/categories?limit=50&page=1
+Content-Type: application/json
+
+### 37. 🔍 Test búsqueda compleja
+GET {{baseUrl}}/categories?search=premium&sortBy=productCount&sortOrder=desc&page=1&limit=10
+Content-Type: application/json
+
+###############################################################################
+# 🎯 ESCENARIOS REALES DE USO
+###############################################################################
+
+### 38. 🛒 Flujo: Obtener categorías para menú principal
+GET {{baseUrl}}/categories?sortBy=productCount&sortOrder=desc&limit=8
+Content-Type: application/json
+
+### 39. 🔍 Flujo: Búsqueda de usuario en tiempo real
+GET {{baseUrl}}/categories?search=semi&limit=5
+Content-Type: application/json
+
+### 40. 📊 Flujo: Panel admin - categorías con más productos
+GET {{baseUrl}}/categories?sortBy=productCount&sortOrder=desc&includeProducts=false
+Content-Type: application/json
+
+###############################################################################
+# 📝 NOTAS PARA TESTING:
+# 
+# 1. Cambiar @adminToken por un token válido de administrador
+# 2. Cambiar @categoryId por un ID real de categoría existente
+# 3. Los tests marcados con ❌ deben fallar (son tests negativos)
+# 4. Los tests marcados con ✅ deben pasar (son tests positivos)
+# 5. Ejecutar en orden para mejores resultados
+# 6. Verificar que el servidor esté corriendo en el puerto correcto
+# 
+# Códigos de respuesta esperados:
+# - 200: Operación exitosa
+# - 201: Categoría creada
+# - 400: Error de validación
+# - 401: No autorizado
+# - 404: No encontrado
+# - 500: Error del servidor
+###############################################################################

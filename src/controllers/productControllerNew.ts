@@ -42,16 +42,63 @@ const processImages = (
     (file) => `/uploads/products/${file.filename}`
   );
 
+  // Combinar imágenes existentes con nuevas
+  const allImages = [...existingImages, ...newImageUrls];
+
+  // Limitar a máximo 4 imágenes (tomar las primeras 4)
+  const finalImages = allImages.slice(0, MAX_FILES);
+
+  if (allImages.length > MAX_FILES) {
+    logOperation("LIMITE_IMAGENES_EXCEDIDO", {
+      imagenesExistentes: existingImages.length,
+      imagenesNuevas: newImageUrls.length,
+      totalIntentas: allImages.length,
+      maximo: MAX_FILES,
+      eliminadas: allImages.length - MAX_FILES,
+    });
+  }
+
+  logOperation("IMAGENES_PROCESADAS", {
+    existentes: existingImages.length,
+    nuevas: newImageUrls.length,
+    final: finalImages.length,
+    urls: finalImages,
+  });
+
+  return finalImages;
+};
+
+// Función auxiliar para procesar imágenes en modo reemplazo
+const processImagesReplace = (files: Express.Multer.File[]): string[] => {
+  logOperation("PROCESANDO_IMAGENES_REEMPLAZO", {
+    archivosNuevos: files?.length || 0,
+  });
+
+  if (!files || files.length === 0) {
+    return [];
+  }
+
+  // Generar URLs para los nuevos archivos
+  const newImageUrls = files.map(
+    (file) => `/uploads/products/${file.filename}`
+  );
+
   // Limitar a máximo 4 imágenes
   const finalImages = newImageUrls.slice(0, MAX_FILES);
 
   if (newImageUrls.length > MAX_FILES) {
-    logOperation("LIMITE_IMAGENES_EXCEDIDO", {
+    logOperation("LIMITE_IMAGENES_EXCEDIDO_REEMPLAZO", {
       intentadas: newImageUrls.length,
       maximo: MAX_FILES,
       eliminadas: newImageUrls.length - MAX_FILES,
     });
   }
+
+  logOperation("IMAGENES_PROCESADAS_REEMPLAZO", {
+    nuevas: newImageUrls.length,
+    final: finalImages.length,
+    urls: finalImages,
+  });
 
   return finalImages;
 };
@@ -86,10 +133,12 @@ export const getProducts = async (
   try {
     const {
       category,
-      isActive,
+      categoryId,
       minPrice,
       maxPrice,
       inStock,
+      featured,
+      tags,
       page = "1",
       limit = "10",
       sortBy = "createdAt",
@@ -100,12 +149,12 @@ export const getProducts = async (
     // Construir filtros
     let filter: any = {};
 
-    if (isActive !== undefined) {
-      filter.isActive = isActive === "true";
-    }
-
     if (category) {
       filter.category = category;
+    }
+
+    if (categoryId) {
+      filter.categoryId = categoryId;
     }
 
     if (minPrice || maxPrice) {
@@ -115,13 +164,25 @@ export const getProducts = async (
     }
 
     if (inStock === "true") {
-      filter.stock = { $gt: 0 };
+      filter.inStock = true;
+    } else if (inStock === "false") {
+      filter.inStock = false;
+    }
+
+    if (featured === "true") {
+      filter.featured = true;
+    }
+
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : [tags];
+      filter.tags = { $in: tagArray };
     }
 
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
+        { tags: { $in: [new RegExp(search as string, "i")] } },
       ];
     }
 
@@ -145,6 +206,7 @@ export const getProducts = async (
       pagina: pageNum,
       limite: limitNum,
       filtros: filter,
+      resultados: products.length,
     });
 
     res.json({
@@ -193,7 +255,7 @@ export const getProductById = async (
     logOperation("PRODUCTO_OBTENIDO", {
       id: product._id,
       name: product.name,
-      totalImagenes: product.images?.length || 0,
+      totalImagenes: product.gallery?.length || 0,
     });
 
     res.json({
@@ -214,7 +276,7 @@ export const getProductById = async (
   }
 };
 
-// POST /api/v1/products - Crear nuevo producto con sistema de 4 slots
+// POST /api/v1/products - Crear nuevo producto
 export const createProduct = async (
   req: Request,
   res: Response
@@ -222,7 +284,20 @@ export const createProduct = async (
   try {
     logOperation("CREAR_PRODUCTO_INICIO", { body: req.body });
 
-    const { name, price, description, category, stock } = req.body;
+    const {
+      name,
+      description,
+      price,
+      originalPrice,
+      category,
+      categoryId,
+      stockCount,
+      rating = 0,
+      reviews = 0,
+      featured = false,
+      tags = [],
+      specifications = {},
+    } = req.body;
     const files = req.files as Express.Multer.File[];
 
     // Validación de campos obligatorios
@@ -231,15 +306,6 @@ export const createProduct = async (
       res.status(400).json({
         success: false,
         message: "El nombre del producto es requerido",
-      });
-      return;
-    }
-
-    if (!price || isNaN(Number(price)) || Number(price) < 0) {
-      await cleanupTempFiles(files);
-      res.status(400).json({
-        success: false,
-        message: "El precio debe ser un número válido mayor o igual a 0",
       });
       return;
     }
@@ -257,31 +323,55 @@ export const createProduct = async (
       return;
     }
 
-    if (!category) {
+    if (!price || isNaN(Number(price)) || Number(price) < 0) {
       await cleanupTempFiles(files);
       res.status(400).json({
         success: false,
-        message: "La categoría es requerida",
+        message: "El precio debe ser un número válido mayor o igual a 0",
       });
       return;
     }
 
-    // Verificar que la categoría existe y está activa
-    const categoryExists = await Category.findOne({
-      _id: category,
-      isActive: true,
-    });
+    if (
+      !category ||
+      typeof category !== "string" ||
+      category.trim().length === 0
+    ) {
+      await cleanupTempFiles(files);
+      res.status(400).json({
+        success: false,
+        message: "El nombre de la categoría es requerido",
+      });
+      return;
+    }
+
+    if (!categoryId) {
+      await cleanupTempFiles(files);
+      res.status(400).json({
+        success: false,
+        message: "El ID de la categoría es requerido",
+      });
+      return;
+    }
+
+    // Verificar que la categoría existe
+    const categoryExists = await Category.findById(categoryId);
     if (!categoryExists) {
       await cleanupTempFiles(files);
       res.status(400).json({
         success: false,
-        message: "La categoría especificada no existe o no está activa",
+        message: "La categoría especificada no existe",
       });
       return;
     }
 
-    // Validar que se proporcionen imágenes (obligatorias)
-    if (!files || files.length === 0) {
+    // Validar que se proporcionen imágenes (desde archivos o gallery)
+    if (
+      (!files || files.length === 0) &&
+      (!req.body.gallery ||
+        !Array.isArray(req.body.gallery) ||
+        req.body.gallery.length === 0)
+    ) {
       res.status(400).json({
         success: false,
         message:
@@ -290,7 +380,8 @@ export const createProduct = async (
       return;
     }
 
-    if (files.length > MAX_FILES) {
+    // Validar número máximo de imágenes
+    if (files && files.length > MAX_FILES) {
       await cleanupTempFiles(files);
       res.status(400).json({
         success: false,
@@ -299,21 +390,43 @@ export const createProduct = async (
       return;
     }
 
-    // Procesar las imágenes
-    const imageUrls = processImages(files);
+    // Procesar las imágenes (desde archivos subidos o gallery del body)
+    let imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      imageUrls = processImages(files);
+    } else if (Array.isArray(req.body.gallery) && req.body.gallery.length > 0) {
+      imageUrls = req.body.gallery.slice(0, MAX_FILES);
+    }
 
     logOperation("IMAGENES_PROCESADAS", { urls: imageUrls });
 
     // Crear el producto
     const productData = {
       name: name.trim(),
-      price: Number(price),
       description: description.trim(),
-      category,
-      stock: stock ? Number(stock) : 0,
-      images: imageUrls,
-      // image será establecida automáticamente por el middleware del modelo
+      price: Number(price),
+      originalPrice: originalPrice ? Number(originalPrice) : undefined,
+      category: category.trim(),
+      categoryId,
+      gallery: imageUrls,
+      stockCount: stockCount ? Number(stockCount) : 0,
+      rating: Number(rating),
+      reviews: Number(reviews),
+      featured: Boolean(featured),
+      tags: Array.isArray(tags) ? tags : [],
+      specifications: specifications || {},
+      // image e inStock serán establecidos automáticamente por los middlewares del modelo
     };
+
+    // LOG: Mostrar datos completos antes de crear el producto
+    console.log(
+      "[CREATE_PRODUCT] productData completo:",
+      JSON.stringify(productData, null, 2)
+    );
+    console.log(
+      "[CREATE_PRODUCT] productData.gallery específico:",
+      productData.gallery
+    );
 
     const product = new Product(productData);
     const savedProduct = await product.save();
@@ -322,7 +435,7 @@ export const createProduct = async (
       id: savedProduct._id,
       name: savedProduct.name,
       imagePrincipal: savedProduct.image,
-      totalImagenes: savedProduct.images.length,
+      totalImagenes: savedProduct.gallery?.length || 0,
     });
 
     res.status(201).json({
@@ -330,7 +443,7 @@ export const createProduct = async (
       message: "Producto creado exitosamente",
       data: {
         ...savedProduct.toObject(),
-        imageUrls: savedProduct.images, // URLs completas para el frontend
+        imageUrls: savedProduct.gallery, // URLs completas para el frontend
       },
     });
   } catch (error) {
@@ -360,7 +473,7 @@ export const createProduct = async (
   }
 };
 
-// PUT /api/v1/products/:id - Actualizar producto con sistema de 4 slots
+// PUT /api/v1/products/:id - Actualizar producto
 export const updateProduct = async (
   req: Request,
   res: Response
@@ -369,12 +482,19 @@ export const updateProduct = async (
     const { id } = req.params;
     const {
       name,
-      price,
       description,
+      price,
+      originalPrice,
       category,
-      stock,
-      isActive,
+      categoryId,
+      stockCount,
+      rating,
+      reviews,
+      featured,
+      tags,
+      specifications,
       replaceImages,
+      gallery,
     } = req.body;
     const files = req.files as Express.Multer.File[];
 
@@ -382,6 +502,7 @@ export const updateProduct = async (
       id,
       body: req.body,
       archivosNuevos: files?.length || 0,
+      replaceImages,
     });
 
     const product = await Product.findById(id);
@@ -396,16 +517,13 @@ export const updateProduct = async (
     }
 
     // Validar categoría si se proporciona
-    if (category && category !== product.category.toString()) {
-      const categoryExists = await Category.findOne({
-        _id: category,
-        isActive: true,
-      });
+    if (categoryId && categoryId !== product.categoryId.toString()) {
+      const categoryExists = await Category.findById(categoryId);
       if (!categoryExists) {
         await cleanupTempFiles(files);
         res.status(400).json({
           success: false,
-          message: "La categoría especificada no existe o no está activa",
+          message: "La categoría especificada no existe",
         });
         return;
       }
@@ -413,116 +531,128 @@ export const updateProduct = async (
 
     // Actualizar campos básicos
     if (name !== undefined) product.name = name.trim();
-    if (price !== undefined) {
-      if (isNaN(Number(price)) || Number(price) < 0) {
-        await cleanupTempFiles(files);
-        res.status(400).json({
-          success: false,
-          message: "El precio debe ser un número válido mayor o igual a 0",
-        });
-        return;
-      }
-      product.price = Number(price);
-    }
     if (description !== undefined) product.description = description.trim();
-    if (category !== undefined) product.category = category;
-    if (stock !== undefined) {
-      if (isNaN(Number(stock)) || Number(stock) < 0) {
-        await cleanupTempFiles(files);
-        res.status(400).json({
-          success: false,
-          message: "El stock debe ser un número válido mayor o igual a 0",
-        });
-        return;
+    if (price !== undefined) product.price = Number(price);
+    if (originalPrice !== undefined)
+      product.originalPrice = Number(originalPrice);
+    if (category !== undefined) product.category = category.trim();
+    if (categoryId !== undefined) product.categoryId = categoryId;
+    if (stockCount !== undefined) product.stockCount = Number(stockCount);
+    if (rating !== undefined) product.rating = Number(rating);
+    if (reviews !== undefined) product.reviews = Number(reviews);
+    if (featured !== undefined) product.featured = Boolean(featured);
+
+    // Parsear tags si vienen como string
+    if (tags !== undefined) {
+      try {
+        const parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags;
+        product.tags = Array.isArray(parsedTags) ? parsedTags : [];
+      } catch (error) {
+        console.log("Error parsing tags, using as array:", error);
+        product.tags = typeof tags === "string" ? [tags] : [];
       }
-      product.stock = Number(stock);
     }
 
-    // Manejar imágenes según el parámetro replaceImages del cliente
-    if (files && files.length > 0) {
-      if (files.length > MAX_FILES) {
-        await cleanupTempFiles(files);
-        res.status(400).json({
-          success: false,
-          message: `Solo se permiten máximo ${MAX_FILES} imágenes por producto`,
-        });
-        return;
+    // Parsear specifications si vienen como string
+    if (specifications !== undefined) {
+      try {
+        const parsedSpecs =
+          typeof specifications === "string"
+            ? JSON.parse(specifications)
+            : specifications;
+        product.specifications = parsedSpecs || {};
+      } catch (error) {
+        console.log("Error parsing specifications, using empty object:", error);
+        product.specifications = {};
       }
+    }
 
-      if (replaceImages === true || replaceImages === "true") {
-        // MODO REEMPLAZO: Eliminar todas las imágenes anteriores y reemplazar con las nuevas
-        logOperation("MODO_REEMPLAZO_IMAGENES", {
-          imagenesAnteriores: product.images.length,
-          imagenesNuevas: files.length,
+    // Gestión de imágenes
+    // COMPORTAMIENTO CAMBIADO: Por defecto reemplaza imágenes, solo combina si explícitamente se indica
+    const shouldReplaceImages =
+      replaceImages !== "false" && replaceImages !== false;
+
+    // Determinar si hay imágenes nuevas (ya sea por archivos o gallery)
+    const hasNewFiles = files && files.length > 0;
+    const hasNewGallery = Array.isArray(gallery) && gallery.length > 0;
+    const hasNewImages = hasNewFiles || hasNewGallery;
+
+    logOperation("GESTION_IMAGENES_UPDATE", {
+      hasNewFiles,
+      hasNewGallery,
+      hasNewImages,
+      shouldReplaceImages,
+      currentImages: product.gallery.length,
+      replaceImagesParam: replaceImages,
+      comportamiento: shouldReplaceImages
+        ? "REEMPLAZAR (por defecto)"
+        : "AGREGAR (explícito)",
+    });
+
+    if (hasNewImages) {
+      if (shouldReplaceImages) {
+        logOperation("REEMPLAZANDO_IMAGENES_POR_DEFECTO", {
+          imagenesAnteriores: product.gallery.length,
+          imagenesNuevas: hasNewFiles ? files.length : gallery.length,
+          tipoActualizacion: hasNewFiles ? "archivos" : "gallery",
+          razon:
+            "Comportamiento por defecto: nuevas imágenes reemplazan anteriores",
         });
 
-        // Eliminar todas las imágenes anteriores del sistema de archivos
-        await cleanupOldImages(product.images);
+        // Eliminar imágenes anteriores y reemplazar completamente
+        await cleanupOldImages(product.gallery);
 
-        // Reemplazar con las nuevas imágenes
-        const newImages = processImages(files);
-        product.images = newImages;
-
-        logOperation("IMAGENES_REEMPLAZADAS", {
-          total: product.images.length,
-          urls: product.images,
-        });
-      } else {
-        // MODO AGREGAR: Agregar nuevas imágenes a las existentes (comportamiento por defecto)
-        logOperation("MODO_AGREGAR_IMAGENES", {
-          imagenesExistentes: product.images.length,
-          imagenesNuevas: files.length,
-        });
-
-        const newImages = files.map(
-          (file) => `/uploads/products/${file.filename}`
-        );
-
-        // Agregar las nuevas imágenes a las existentes
-        const allImages = [...product.images, ...newImages];
-
-        // Limitar a máximo 4 imágenes total
-        if (allImages.length > MAX_FILES) {
-          const excessImages = allImages.slice(MAX_FILES);
-          // Eliminar archivos en exceso (solo los nuevos que exceden)
-          await cleanupOldImages(excessImages);
-          product.images = allImages.slice(0, MAX_FILES);
-
-          logOperation("LIMITE_IMAGENES_APLICADO", {
-            totalOriginal: allImages.length,
-            totalFinal: product.images.length,
-            eliminadas: excessImages.length,
-          });
+        // Procesar nuevas imágenes según el tipo
+        let newImages: string[];
+        if (hasNewFiles) {
+          // Procesar archivos subidos
+          newImages = processImagesReplace(files);
         } else {
-          product.images = allImages;
+          // Usar gallery del body (URLs ya procesadas)
+          newImages = gallery.slice(0, MAX_FILES);
         }
 
+        product.gallery = newImages;
+
+        logOperation("IMAGENES_REEMPLAZADAS", {
+          total: product.gallery.length,
+          urls: product.gallery,
+        });
+      } else {
+        // Solo agregar imágenes cuando explícitamente se indique replaceImages=false
+        logOperation("AGREGANDO_IMAGENES_EXPLICITO", {
+          imagenesExistentes: product.gallery.length,
+          imagenesNuevas: hasNewFiles ? files.length : gallery.length,
+          tipoActualizacion: hasNewFiles ? "archivos" : "gallery",
+          razon: "Explícitamente indicado replaceImages=false",
+        });
+
+        // Procesar nuevas imágenes y combinar con existentes
+        let newImages: string[];
+        if (hasNewFiles) {
+          // Combinar archivos con existentes
+          newImages = processImages(files, product.gallery);
+        } else {
+          // Combinar gallery URLs con existentes
+          const allImages = [...product.gallery, ...gallery];
+          newImages = allImages.slice(0, MAX_FILES);
+        }
+
+        product.gallery = newImages;
+
         logOperation("IMAGENES_AGREGADAS", {
-          total: product.images.length,
-          urls: product.images,
+          total: product.gallery.length,
+          urls: product.gallery,
         });
       }
-    } else {
-      // Si no se envían nuevas imágenes, validar que el producto tenga al menos una imagen existente
-      if (product.images.length === 0) {
-        res.status(400).json({
-          success: false,
-          message: "El producto debe tener al menos una imagen",
-        });
-        return;
-      }
-      logOperation("SIN_NUEVAS_IMAGENES", {
-        imagenesExistentes: product.images.length,
-      });
     }
 
     const updatedProduct = await product.save();
 
     logOperation("PRODUCTO_ACTUALIZADO", {
       id: updatedProduct._id,
-      name: updatedProduct.name,
-      imagePrincipal: updatedProduct.image,
-      totalImagenes: updatedProduct.images.length,
+      totalImagenes: updatedProduct.gallery.length,
+      imagenesUrls: updatedProduct.gallery,
     });
 
     res.json({
@@ -530,11 +660,11 @@ export const updateProduct = async (
       message: "Producto actualizado exitosamente",
       data: {
         ...updatedProduct.toObject(),
-        imageUrls: updatedProduct.images,
+        imageUrls: updatedProduct.gallery,
       },
     });
   } catch (error) {
-    // Limpiar archivos subidos si hay error
+    // Limpiar archivos subidos en caso de error
     const files = req.files as Express.Multer.File[];
     if (files && files.length > 0) {
       await cleanupTempFiles(files);
@@ -548,13 +678,13 @@ export const updateProduct = async (
     if (error instanceof Error && error.name === "ValidationError") {
       res.status(400).json({
         success: false,
-        message: "Error de validación",
+        message: "Error de validación del producto",
         error: error.message,
       });
     } else {
       res.status(500).json({
         success: false,
-        message: "Error al actualizar el producto",
+        message: "Error interno al actualizar el producto",
         error: error instanceof Error ? error.message : error,
       });
     }
@@ -568,7 +698,6 @@ export const deleteProduct = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { permanent } = req.query;
 
     const product = await Product.findById(id);
 
@@ -580,32 +709,39 @@ export const deleteProduct = async (
       return;
     }
 
-    if (permanent === "true") {
-      // Eliminación permanente - eliminar también las imágenes
-      logOperation("ELIMINACION_PERMANENTE", {
-        id: product._id,
-        imagenes: product.images.length,
-      });
+    logOperation("ELIMINANDO_PRODUCTO", {
+      id: product._id,
+      nombre: product.name,
+      imagenes: product.gallery?.length || 0,
+    });
 
-      await cleanupOldImages(product.images);
-      await Product.findByIdAndDelete(id);
-
-      res.json({
-        success: true,
-        message: "Producto eliminado permanentemente",
-      });
-    } else {
-      // Eliminación lógica - desactivar
-      logOperation("ELIMINACION_LOGICA", { id: product._id });
-
-      await product.save();
-
-      res.json({
-        success: true,
-        message: "Producto desactivado exitosamente",
-        data: product,
-      });
+    // Eliminar imágenes asociadas del servidor
+    if (product.gallery && product.gallery.length > 0) {
+      try {
+        await cleanupOldImages(product.gallery);
+        logOperation("IMAGENES_ELIMINADAS", {
+          cantidad: product.gallery.length,
+        });
+      } catch (imageError) {
+        // Continuar con la eliminación del producto aunque falle la eliminación de imágenes
+        logOperation("ERROR_ELIMINAR_IMAGENES", {
+          error: imageError instanceof Error ? imageError.message : imageError,
+        });
+      }
     }
+
+    // Eliminar producto de la base de datos
+    await Product.findByIdAndDelete(id);
+
+    logOperation("PRODUCTO_ELIMINADO", {
+      id,
+      nombre: product.name,
+    });
+
+    res.json({
+      success: true,
+      message: "Producto eliminado exitosamente",
+    });
   } catch (error) {
     logOperation("ERROR_ELIMINAR_PRODUCTO", {
       id: req.params.id,
@@ -620,101 +756,47 @@ export const deleteProduct = async (
   }
 };
 
-// PUT /api/v1/products/:id/activate - Reactivar producto
-export const activateProduct = async (
+// PUT /api/v1/products/:id/stock - Actualizar stock de un producto
+export const updateProductStock = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const { stockCount, inStock } = req.body;
 
-    const product = await Product.findById(id);
-
-    if (!product) {
-      res.status(404).json({
-        success: false,
-        message: "Producto no encontrado",
-      });
-      return;
-    }
-
-    const updatedProduct = await product.save();
-
-    logOperation("PRODUCTO_REACTIVADO", {
-      id: updatedProduct._id,
-      name: updatedProduct.name,
-    });
-
-    res.json({
-      success: true,
-      message: "Producto reactivado exitosamente",
-      data: updatedProduct,
-    });
-  } catch (error) {
-    logOperation("ERROR_REACTIVAR_PRODUCTO", {
-      id: req.params.id,
-      error: error instanceof Error ? error.message : error,
-    });
-
-    res.status(500).json({
-      success: false,
-      message: "Error al reactivar el producto",
-      error: error instanceof Error ? error.message : error,
-    });
-  }
-};
-
-// PUT /api/v1/products/:id/stock - Actualizar stock específicamente
-export const updateStock = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { stock, operation } = req.body; // operation: 'set', 'add', 'subtract'
-
-    const product = await Product.findById(id);
-
-    if (!product) {
-      res.status(404).json({
-        success: false,
-        message: "Producto no encontrado",
-      });
-      return;
-    }
-
-    if (typeof stock !== "number" || stock < 0) {
+    if (stockCount === undefined && inStock === undefined) {
       res.status(400).json({
         success: false,
-        message: "El stock debe ser un número válido mayor o igual a 0",
+        message: "Se requiere stockCount o inStock para actualizar el stock",
       });
       return;
     }
 
-    const previousStock = product.stock;
+    const product = await Product.findById(id);
 
-    switch (operation) {
-      case "set":
-        product.stock = stock;
-        break;
-      case "add":
-        product.stock += stock;
-        break;
-      case "subtract":
-        product.stock = Math.max(0, product.stock - stock);
-        break;
-      default:
-        product.stock = stock; // Por defecto, establecer el valor
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+      return;
+    }
+
+    // Actualizar campos de stock
+    if (stockCount !== undefined) {
+      product.stockCount = Number(stockCount);
+    }
+    if (inStock !== undefined) {
+      product.inStock = Boolean(inStock);
     }
 
     const updatedProduct = await product.save();
 
     logOperation("STOCK_ACTUALIZADO", {
       id: updatedProduct._id,
-      operacion: operation || "set",
-      stockAnterior: previousStock,
-      stockNuevo: updatedProduct.stock,
-      cambio: stock,
+      stockCount: updatedProduct.stockCount,
+      inStock: updatedProduct.inStock,
     });
 
     res.json({
@@ -722,10 +804,8 @@ export const updateStock = async (
       message: "Stock actualizado exitosamente",
       data: {
         id: updatedProduct._id,
-        name: updatedProduct.name,
-        previousStock,
-        newStock: updatedProduct.stock,
-        operation,
+        stockCount: updatedProduct.stockCount,
+        inStock: updatedProduct.inStock,
       },
     });
   } catch (error) {

@@ -4,30 +4,24 @@ import { Roles } from "./RolesTypes";
 
 export interface User extends Document {
   name: string;
-  username: string;
+  lastname: string;
   email: string;
   password: string;
-  nationality: string;
-  locality: string;
   age: number;
+  whatsapp: string;
   roles?: Roles[];
   permissions?: string[];
   // Nuevos campos para capacitaciones:
-  capSeresArte?: boolean;
-  capThr?: boolean;
-  capPhr?: boolean;
-  capMat?: boolean;
-  capUor?: boolean;
-  capReh?: boolean;
-  capViv?: boolean;
-  subscription?: {
-    transactionId: string;
-    paymentDate: Date;
-    expirationDate: Date;
-  };
-  couponUsed?: boolean;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  // Campos para suscripciones:
+  subscription?: {
+    type: "monthly" | "annual";
+    status: "active" | "inactive" | "cancelled" | "expired";
+    expirationDate: Date;
+    paymentId?: string;
+  };
+  couponUsed?: boolean;
   comparePassword(password: string): Promise<boolean>;
   createdAt: Date;
 }
@@ -44,17 +38,5 @@ export interface IUserService {
   findUserByResetToken(token: string): Promise<User | null>;
   updateUser(id: string, user: Partial<User>): Promise<User | null>;
   deleteUser(id: string): Promise<boolean>;
-  // Nuevo método para actualizar las capacitaciones usando el email del usuario
-  updateUserCapacitationsByEmail(
-    email: string,
-    capacitations: {
-      capSeresArte: boolean;
-      capThr: boolean;
-      capPhr: boolean;
-      capMat: boolean;
-      capUor: boolean;
-      capReh: boolean;
-      capViv: boolean;
-    }
-  ): Promise<User | null>;
+  hasActiveSubscription(userId: string): Promise<boolean>;
 }

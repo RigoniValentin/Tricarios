@@ -51,19 +51,12 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     const token = jwt.sign(
       {
         id: user._id,
+        name: user.name,
+        lastname: user.lastname,
+        whatsapp: user.whatsapp,
         email: user.email,
-        username: user.username,
         roles: user.roles,
-        nationality: user.nationality,
-        locality: user.locality,
         age: user.age,
-        capSeresArte: user.capSeresArte || false,
-        capThr: user.capThr || false,
-        capPhr: user.capPhr || false,
-        capMat: user.capMat || false,
-        capUor: user.capUor || false,
-        capReh: user.capReh || false,
-        capViv: user.capViv || false,
       },
       jwtSecret,
       { expiresIn: "3h" }
@@ -71,7 +64,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     //const decodedPayload = jwt.decode(token);
     //console.log("Payload decodificado:", decodedPayload);
-    console.log("MercadoPago Access Token:", process.env.MP_ACCESS_TOKEN);
+    //console.log("MercadoPago Access Token:", process.env.MP_ACCESS_TOKEN);
     res.json(token);
   } catch (error) {
     console.log("error :>> ", error);
@@ -101,11 +94,11 @@ export const refreshToken = async (
     const newToken = jwt.sign(
       {
         id: updatedUser._id,
+        name: updatedUser.name,
+        lastname: updatedUser.lastname,
+        whatsapp: updatedUser.whatsapp,
         email: updatedUser.email,
-        username: updatedUser.username,
         roles: updatedUser.roles,
-        nationality: updatedUser.nationality,
-        locality: updatedUser.locality,
         age: updatedUser.age,
       },
       jwtSecret,

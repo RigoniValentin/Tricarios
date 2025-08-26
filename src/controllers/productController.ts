@@ -12,6 +12,11 @@ import {
   handleUploadError,
 } from "@middlewares/upload";
 import uploadMiddleware from "@middlewares/upload";
+import {
+  IProductSpecifications,
+  parseSpecificationsFromString,
+  sanitizeSpecifications,
+} from "../types/ProductSpecifications";
 
 const MAX_FILES = uploadMiddleware.MAX_FILES;
 
@@ -78,6 +83,44 @@ const cleanupOldImages = async (imagesToDelete: string[]): Promise<void> => {
   });
 };
 
+// Función auxiliar para formatear producto para el frontend
+const formatProductForFrontend = (product: IProduct) => {
+  const productObj = product.toObject();
+  return {
+    id: productObj._id.toString(),
+    name: productObj.name,
+    description: productObj.description,
+    price: productObj.price,
+    originalPrice: productObj.originalPrice,
+    category: productObj.category,
+    categoryId: productObj.categoryId,
+    image: productObj.image,
+    gallery: productObj.gallery || [],
+    inStock: productObj.inStock,
+    stockCount: productObj.stockCount,
+    rating: productObj.rating,
+    reviews: productObj.reviews,
+    featured: productObj.featured,
+    tags: productObj.tags || [],
+    specifications:
+      typeof productObj.specifications === "object" &&
+      productObj.specifications !== null &&
+      !Array.isArray(productObj.specifications)
+        ? productObj.specifications
+        : {},
+    discount:
+      productObj.originalPrice && productObj.originalPrice > productObj.price
+        ? Math.round(
+            ((productObj.originalPrice - productObj.price) /
+              productObj.originalPrice) *
+              100
+          )
+        : 0,
+    createdAt: productObj.createdAt,
+    updatedAt: productObj.updatedAt,
+  };
+};
+
 // GET /api/v1/products - Obtener todos los productos
 export const getProducts = async (
   req: Request,
@@ -86,9 +129,12 @@ export const getProducts = async (
   try {
     const {
       category,
+      categoryId,
       minPrice,
       maxPrice,
       inStock,
+      featured,
+      tags,
       page = "1",
       limit = "10",
       sortBy = "createdAt",
@@ -103,6 +149,10 @@ export const getProducts = async (
       filter.category = category;
     }
 
+    if (categoryId) {
+      filter.categoryId = categoryId;
+    }
+
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
@@ -110,13 +160,25 @@ export const getProducts = async (
     }
 
     if (inStock === "true") {
-      filter.stock = { $gt: 0 };
+      filter.inStock = true;
+    } else if (inStock === "false") {
+      filter.inStock = false;
+    }
+
+    if (featured === "true") {
+      filter.featured = true;
+    }
+
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : [tags];
+      filter.tags = { $in: tagArray };
     }
 
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
+        { tags: { $in: [new RegExp(search as string, "i")] } },
       ];
     }
 
@@ -145,7 +207,7 @@ export const getProducts = async (
 
     res.json({
       success: true,
-      data: products,
+      data: products.map((product) => formatProductForFrontend(product)),
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -189,12 +251,12 @@ export const getProductById = async (
     logOperation("PRODUCTO_OBTENIDO", {
       id: product._id,
       name: product.name,
-      totalImagenes: product.images?.length || 0,
+      totalImagenes: product.gallery?.length || 0,
     });
 
     res.json({
       success: true,
-      data: product,
+      data: formatProductForFrontend(product),
     });
   } catch (error) {
     logOperation("ERROR_OBTENER_PRODUCTO", {
@@ -218,7 +280,20 @@ export const createProduct = async (
   try {
     logOperation("CREAR_PRODUCTO_INICIO", { body: req.body });
 
-    const { name, price, description, category, stock } = req.body;
+    const {
+      name,
+      description,
+      price,
+      originalPrice,
+      category,
+      categoryId,
+      stockCount,
+      rating = 0,
+      reviews = 0,
+      featured = false,
+      tags = [],
+      specifications = {},
+    } = req.body;
     const files = req.files as Express.Multer.File[];
 
     // Validación de campos obligatorios
@@ -227,15 +302,6 @@ export const createProduct = async (
       res.status(400).json({
         success: false,
         message: "El nombre del producto es requerido",
-      });
-      return;
-    }
-
-    if (!price || isNaN(Number(price)) || Number(price) < 0) {
-      await cleanupTempFiles(files);
-      res.status(400).json({
-        success: false,
-        message: "El precio debe ser un número válido mayor o igual a 0",
       });
       return;
     }
@@ -253,17 +319,39 @@ export const createProduct = async (
       return;
     }
 
-    if (!category) {
+    if (!price || isNaN(Number(price)) || Number(price) < 0) {
       await cleanupTempFiles(files);
       res.status(400).json({
         success: false,
-        message: "La categoría es requerida",
+        message: "El precio debe ser un número válido mayor o igual a 0",
+      });
+      return;
+    }
+
+    if (
+      !category ||
+      typeof category !== "string" ||
+      category.trim().length === 0
+    ) {
+      await cleanupTempFiles(files);
+      res.status(400).json({
+        success: false,
+        message: "El nombre de la categoría es requerido",
+      });
+      return;
+    }
+
+    if (!categoryId) {
+      await cleanupTempFiles(files);
+      res.status(400).json({
+        success: false,
+        message: "El ID de la categoría es requerido",
       });
       return;
     }
 
     // Verificar que la categoría existe
-    const categoryExists = await Category.findById(category);
+    const categoryExists = await Category.findById(categoryId);
     if (!categoryExists) {
       await cleanupTempFiles(files);
       res.status(400).json({
@@ -273,17 +361,8 @@ export const createProduct = async (
       return;
     }
 
-    // Validar que se proporcionen imágenes (obligatorias)
-    if (!files || files.length === 0) {
-      res.status(400).json({
-        success: false,
-        message:
-          "Debe proporcionar al menos una imagen del producto (máximo 4)",
-      });
-      return;
-    }
-
-    if (files.length > MAX_FILES) {
+    // Validar número máximo de imágenes si se proporcionan
+    if (files && files.length > MAX_FILES) {
       await cleanupTempFiles(files);
       res.status(400).json({
         success: false,
@@ -292,21 +371,79 @@ export const createProduct = async (
       return;
     }
 
-    // Procesar las imágenes
-    const imageUrls = processImages(files);
+    // LOG: Mostrar el contenido de req.body.gallery antes de procesar imágenes
+    console.log("[CREATE_PRODUCT] req.body.gallery:", req.body.gallery);
+
+    // Procesar imágenes: si no hay archivos subidos, usar gallery del body
+    let imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      imageUrls = processImages(files || []);
+    } else if (Array.isArray(req.body.gallery) && req.body.gallery.length > 0) {
+      imageUrls = req.body.gallery.slice(0, MAX_FILES);
+    }
+    // LOG: Mostrar el array final de imágenes
+    console.log("[CREATE_PRODUCT] imageUrls:", imageUrls);
+    // Si no hay imágenes, imageUrls será vacío y el modelo pondrá la default
 
     logOperation("IMAGENES_PROCESADAS", { urls: imageUrls });
+
+    // Parsear tags y specifications si vienen como string
+    let parsedTags = tags;
+    let parsedSpecs = specifications;
+
+    try {
+      if (typeof tags === "string") {
+        parsedTags = JSON.parse(tags);
+      }
+    } catch (error) {
+      console.log(
+        "Error parsing tags, using as array with single element:",
+        error
+      );
+      parsedTags = [tags];
+    }
+
+    try {
+      if (typeof specifications === "string") {
+        parsedSpecs = parseSpecificationsFromString(specifications);
+      } else {
+        parsedSpecs = sanitizeSpecifications(specifications);
+      }
+    } catch (error) {
+      console.log(
+        "Error processing specifications, using as empty object:",
+        error
+      );
+      parsedSpecs = {};
+    }
 
     // Crear el producto
     const productData = {
       name: name.trim(),
-      price: Number(price),
       description: description.trim(),
-      category,
-      stock: stock ? Number(stock) : 0,
-      images: imageUrls,
-      // image será establecida automáticamente por el middleware del modelo
+      price: Number(price),
+      originalPrice: originalPrice ? Number(originalPrice) : undefined,
+      category: category.trim(),
+      categoryId,
+      gallery: imageUrls,
+      stockCount: stockCount ? Number(stockCount) : 0,
+      rating: Number(rating),
+      reviews: Number(reviews),
+      featured: Boolean(featured),
+      tags: Array.isArray(parsedTags)
+        ? parsedTags
+        : parsedTags
+        ? [parsedTags]
+        : [],
+      specifications: parsedSpecs || {},
+      // image e inStock serán establecidos automáticamente por los middlewares del modelo
     };
+
+    // LOG: Mostrar datos del producto antes de crear
+    console.log(
+      "[CREATE_PRODUCT] productData antes de crear:",
+      JSON.stringify(productData, null, 2)
+    );
 
     const product = new Product(productData);
     const savedProduct = await product.save();
@@ -315,16 +452,13 @@ export const createProduct = async (
       id: savedProduct._id,
       name: savedProduct.name,
       imagePrincipal: savedProduct.image,
-      totalImagenes: savedProduct.images.length,
+      totalImagenes: savedProduct.gallery?.length || 0,
     });
 
     res.status(201).json({
       success: true,
       message: "Producto creado exitosamente",
-      data: {
-        ...savedProduct.toObject(),
-        imageUrls: savedProduct.images, // URLs completas para el frontend
-      },
+      data: formatProductForFrontend(savedProduct),
     });
   } catch (error) {
     // Limpiar archivos subidos en caso de error
@@ -335,7 +469,20 @@ export const createProduct = async (
 
     logOperation("ERROR_CREAR_PRODUCTO", {
       error: error instanceof Error ? error.message : error,
+      errorName: error instanceof Error ? error.name : "Unknown",
+      stack: error instanceof Error ? error.stack : undefined,
     });
+
+    // Log adicional para debugging
+    console.log("❌ [CREATE_PRODUCT] Error completo:", error);
+    console.log(
+      "❌ [CREATE_PRODUCT] Error name:",
+      error instanceof Error ? error.name : "Unknown"
+    );
+    console.log(
+      "❌ [CREATE_PRODUCT] Error message:",
+      error instanceof Error ? error.message : error
+    );
 
     if (error instanceof Error && error.name === "ValidationError") {
       res.status(400).json({
@@ -384,7 +531,7 @@ export const updateProduct = async (
     }
 
     // Validar categoría si se proporciona
-    if (category && category !== product.category.toString()) {
+    if (category && category !== product.categoryId.toString()) {
       const categoryExists = await Category.findById(category);
       if (!categoryExists) {
         await cleanupTempFiles(files);
@@ -410,7 +557,7 @@ export const updateProduct = async (
       product.price = Number(price);
     }
     if (description !== undefined) product.description = description.trim();
-    if (category !== undefined) product.category = category;
+    if (category !== undefined) product.categoryId = category;
     if (stock !== undefined) {
       if (isNaN(Number(stock)) || Number(stock) < 0) {
         await cleanupTempFiles(files);
@@ -420,7 +567,7 @@ export const updateProduct = async (
         });
         return;
       }
-      product.stock = Number(stock);
+      product.stockCount = Number(stock);
     }
 
     // Función auxiliar para convertir valores a boolean de manera robusta
@@ -435,6 +582,9 @@ export const updateProduct = async (
       return false;
     };
 
+    // LOG: Mostrar el contenido de req.body.gallery antes de procesar imágenes
+    console.log("[UPDATE_PRODUCT] req.body.gallery:", req.body.gallery);
+
     // Manejar imágenes - con los slots individuales SIEMPRE reemplazamos
     if (files && files.length > 0) {
       if (files.length > MAX_FILES) {
@@ -445,28 +595,31 @@ export const updateProduct = async (
         });
         return;
       }
-
       logOperation("PROCESANDO_SLOTS_INDIVIDUALES", {
-        imagenesAnteriores: product.images.length,
+        imagenesAnteriores: product.gallery.length,
         imagenesNuevas: files.length,
         replaceImages: toBooleanSafe(replaceImages),
       });
-
-      // Con el sistema de slots, SIEMPRE reemplazamos todas las imágenes
-      // Eliminar todas las imágenes anteriores del sistema de archivos
-      await cleanupOldImages(product.images);
-
-      // Procesar y establecer las nuevas imágenes
+      await cleanupOldImages(product.gallery);
       const newImages = processImages(files);
-      product.images = newImages;
-
+      product.gallery = newImages;
       logOperation("IMAGENES_SLOTS_PROCESADAS", {
-        total: product.images.length,
-        urls: product.images,
+        total: product.gallery.length,
+        urls: product.gallery,
+      });
+    } else if (Array.isArray(req.body.gallery) && req.body.gallery.length > 0) {
+      // LOG: Mostrar el array final de imágenes
+      console.log("[UPDATE_PRODUCT] imageUrls:", req.body.gallery);
+      // Si no hay archivos pero sí gallery en el body, reemplazar imágenes
+      await cleanupOldImages(product.gallery);
+      product.gallery = req.body.gallery.slice(0, MAX_FILES);
+      logOperation("IMAGENES_SLOTS_PROCESADAS_BODY", {
+        total: product.gallery.length,
+        urls: product.gallery,
       });
     } else {
       // Si no se envían nuevas imágenes, validar que el producto tenga al menos una imagen existente
-      if (product.images.length === 0) {
+      if (product.gallery.length === 0) {
         res.status(400).json({
           success: false,
           message: "El producto debe tener al menos una imagen",
@@ -474,7 +627,7 @@ export const updateProduct = async (
         return;
       }
       logOperation("SIN_NUEVAS_IMAGENES_SLOTS", {
-        imagenesExistentes: product.images.length,
+        imagenesExistentes: product.gallery.length,
       });
     }
 
@@ -484,8 +637,8 @@ export const updateProduct = async (
       id: updatedProduct._id,
       name: updatedProduct.name,
       imagePrincipal: updatedProduct.image,
-      totalImagenes: updatedProduct.images.length,
-      imagenesUrls: updatedProduct.images,
+      totalImagenes: updatedProduct.gallery.length,
+      imagenesUrls: updatedProduct.gallery,
     });
 
     res.json({
@@ -493,7 +646,7 @@ export const updateProduct = async (
       message: "Producto actualizado exitosamente",
       data: {
         ...updatedProduct.toObject(),
-        imageUrls: updatedProduct.images,
+        imageUrls: updatedProduct.gallery,
       },
     });
   } catch (error) {
@@ -552,22 +705,22 @@ export const deleteProduct = async (
     logOperation("PRODUCTO_ENCONTRADO", {
       id: product._id,
       name: product.name,
-      imagenes: product.images?.length || 0,
+      imagenes: product.gallery?.length || 0,
     });
 
     if (permanent === "true") {
       // Eliminación permanente - eliminar también las imágenes
       logOperation("ELIMINACION_PERMANENTE", {
         id: product._id,
-        imagenes: product.images?.length || 0,
+        imagenes: product.gallery?.length || 0,
       });
 
       // Eliminar imágenes si existen
-      if (product.images && product.images.length > 0) {
+      if (product.gallery && product.gallery.length > 0) {
         try {
-          await cleanupOldImages(product.images);
+          await cleanupOldImages(product.gallery);
           logOperation("IMAGENES_ELIMINADAS_EXITOSAMENTE", {
-            cantidad: product.images.length,
+            cantidad: product.gallery.length,
           });
         } catch (imageError) {
           logOperation("ERROR_ELIMINANDO_IMAGENES", {
@@ -591,15 +744,15 @@ export const deleteProduct = async (
       // Eliminación directa por defecto
       logOperation("ELIMINACION_DIRECTA", {
         id: product._id,
-        imagenes: product.images?.length || 0,
+        imagenes: product.gallery?.length || 0,
       });
 
       // Eliminar imágenes si existen
-      if (product.images && product.images.length > 0) {
+      if (product.gallery && product.gallery.length > 0) {
         try {
-          await cleanupOldImages(product.images);
+          await cleanupOldImages(product.gallery);
           logOperation("IMAGENES_ELIMINADAS_EXITOSAMENTE", {
-            cantidad: product.images.length,
+            cantidad: product.gallery.length,
           });
         } catch (imageError) {
           logOperation("ERROR_ELIMINANDO_IMAGENES", {
@@ -661,20 +814,20 @@ export const updateStock = async (
       return;
     }
 
-    const previousStock = product.stock;
+    const previousStock = product.stockCount;
 
     switch (operation) {
       case "set":
-        product.stock = stock;
+        product.stockCount = stock;
         break;
       case "add":
-        product.stock += stock;
+        product.stockCount += stock;
         break;
       case "subtract":
-        product.stock = Math.max(0, product.stock - stock);
+        product.stockCount = Math.max(0, product.stockCount - stock);
         break;
       default:
-        product.stock = stock; // Por defecto, establecer el valor
+        product.stockCount = stock; // Por defecto, establecer el valor
     }
 
     const updatedProduct = await product.save();
@@ -683,7 +836,7 @@ export const updateStock = async (
       id: updatedProduct._id,
       operacion: operation || "set",
       stockAnterior: previousStock,
-      stockNuevo: updatedProduct.stock,
+      stockNuevo: updatedProduct.stockCount,
       cambio: stock,
     });
 
@@ -694,7 +847,7 @@ export const updateStock = async (
         id: updatedProduct._id,
         name: updatedProduct.name,
         previousStock,
-        newStock: updatedProduct.stock,
+        newStock: updatedProduct.stockCount,
         operation,
       },
     });

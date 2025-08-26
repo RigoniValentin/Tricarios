@@ -1,0 +1,60 @@
+### Test para verificar actualización de imágenes
+
+@baseUrl = http://localhost:3000/api/v1
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NzlkNWI5NGI4ZWNjZDFhMWZlZGNjM2IiLCJlbWFpbCI6InZhbGVudGluLnJpZ29uaUBnbWFpbC5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTQ0MTU2MzAsImV4cCI6MTc1NDUwMjAzMH0.X_0zLdPAi6-4g0RKQTSJwjNX7xaR8I-gJeN2QCQfzZE
+@categoryId = 679d5b94b8eccd1a1fedcc3d
+@productId = 679d7f70ee4d3b0e84cbe28c
+
+### 1. Crear producto inicial con imagen
+POST {{baseUrl}}/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Producto Imágenes",
+  "description": "Producto para testear actualización de imágenes",
+  "price": 25.99,
+  "category": "Test",
+  "categoryId": "{{categoryId}}",
+  "stockCount": 10,
+  "gallery": ["/uploads/products/imagen-inicial.png"]
+}
+
+### 2. Verificar producto inicial
+GET {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{adminToken}}
+
+### 3. ACTUALIZAR con nueva imagen (debe REEMPLAZAR por defecto)
+PUT {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Producto Imágenes ACTUALIZADO",
+  "description": "Producto con imagen actualizada - DEBE REEMPLAZAR",
+  "gallery": ["/uploads/products/imagen-nueva-reemplaza.png"]
+}
+
+### 4. Verificar que se reemplazó (debe tener solo la nueva imagen)
+GET {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{adminToken}}
+
+### 5. ACTUALIZAR agregando imagen (explícitamente combinar)
+PUT {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Producto Imágenes - AGREGANDO",
+  "description": "Producto agregando imagen - DEBE COMBINAR",
+  "replaceImages": false,
+  "gallery": ["/uploads/products/imagen-agregada.png"]
+}
+
+### 6. Verificar que se agregó (debe tener ambas imágenes)
+GET {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{adminToken}}
+
+### 7. Limpiar - Eliminar producto de test
+DELETE {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{adminToken}}

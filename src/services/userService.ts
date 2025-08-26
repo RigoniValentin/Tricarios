@@ -37,32 +37,16 @@ export class UserService implements IUserService {
     return this.userRepository.delete(id);
   }
 
-  public async hasActiveSubscription(userId: string): Promise<boolean> {
+  async hasActiveSubscription(userId: string): Promise<boolean> {
     const user = await this.findUserById(userId);
-    if (!user || !user.subscription || !user.subscription.expirationDate) {
+    if (!user || !user.subscription) {
       return false;
     }
-    // Comprueba si la fecha de expiración es mayor a la fecha actual
-    return new Date(user.subscription.expirationDate) > new Date();
-  }
 
-  // Nuevo método para actualizar las capacitaciones por email
-  async updateUserCapacitationsByEmail(
-    email: string,
-    capacitations: {
-      capSeresArte: boolean;
-      capThr: boolean;
-      capPhr: boolean;
-      capMat: boolean;
-      capUor: boolean;
-      capReh: boolean;
-      capViv: boolean;
-    }
-  ): Promise<User | null> {
-    const user = await this.findUserByEmail(email);
-    if (!user) {
-      return null;
-    }
-    return this.userRepository.update(user.id, capacitations);
+    const now = new Date();
+    return (
+      user.subscription.status === "active" &&
+      user.subscription.expirationDate > now
+    );
   }
 }

@@ -161,11 +161,8 @@ export const captureOrder = async (
     expirationDate.setDate(expirationDate.getDate() + 30);
 
     user.roles = [paidUserRole[0]]; // Agregar el rol "paid_user"
-    user.subscription = {
-      transactionId,
-      paymentDate,
-      expirationDate,
-    };
+
+
     await user.save();
 
     res.redirect(`${HOST}/pagoAprobado`);
@@ -283,11 +280,7 @@ export const capturePreference = async (
     );
 
     user.roles = [paidUserRole[0]];
-    user.subscription = {
-      transactionId: payment_id as string,
-      paymentDate,
-      expirationDate,
-    };
+
     await user.save();
 
     const successUrl =
@@ -343,11 +336,7 @@ export const applyCoupon = async (
 
     // Actualizar el rol, la suscripción y marcar que se utilizó el cupón
     user.roles = [paidUserRole[0]];
-    user.subscription = {
-      transactionId: coupon, // Se puede usar el cupón como identificador de transacción
-      paymentDate,
-      expirationDate,
-    };
+
     user.couponUsed = true; // Marcar que ya se utilizó el cupón
     await user.save();
 

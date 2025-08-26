@@ -5,9 +5,6 @@ import {
   createUser,
   updateUser,
   deleteUser,
-  getUsersSubscriptionInfo,
-  updateUserCapacitations,
-  updateUserCapacitationsByEmail,
 } from "@controllers/userController";
 import {
   findRoles,
@@ -51,6 +48,7 @@ import {
 // Importar rutas de la tienda
 import categoryRoutes from "./categoryRoutes";
 import productRoutes from "./productRoutes";
+import uploadRoutes from "./uploadRoutes";
 import {
   applyCoupon,
   cancelPayment,
@@ -89,27 +87,9 @@ export default () => {
 
   //#region User Routes
   router.get("/users", verifyToken, getPermissions, findUsers);
-  router.get(
-    "/users/subscription-info",
-    verifyToken,
-    getPermissions,
-    getUsersSubscriptionInfo
-  );
   router.get("/users/:id", verifyToken, getPermissions, findUserById);
   router.post("/users", verifyToken, getPermissions, checkRoles, createUser);
   router.put("/users/:id", verifyToken, getPermissions, updateUser);
-  router.put(
-    "/users/:id/capacitations",
-    verifyToken,
-    getPermissions,
-    updateUserCapacitations
-  );
-  router.put(
-    "/users/email/:email/capacitations",
-    verifyToken,
-    getPermissions,
-    updateUserCapacitationsByEmail
-  );
   router.delete("/users/:id", verifyToken, getPermissions, deleteUser);
   //#endregion
 
@@ -246,6 +226,9 @@ export default () => {
 
   // Rutas de productos de la tienda
   router.use("/products", productRoutes);
+
+  // Rutas de upload de archivos
+  router.use("/upload", uploadRoutes);
   // #endregion
 
   return router;

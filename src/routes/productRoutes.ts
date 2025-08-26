@@ -5,8 +5,8 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  updateStock,
-} from "@controllers/productController";
+  updateProductStock,
+} from "@controllers/productControllerNew";
 import { uploadProductImages, handleUploadError } from "@middlewares/upload";
 
 const router = Router();
@@ -27,6 +27,6 @@ router.put("/:id", uploadProductImages, handleUploadError, updateProduct);
 router.delete("/:id", deleteProduct);
 
 // PUT /api/v1/products/:id/stock - Actualizar stock específicamente
-router.put("/:id/stock", updateStock);
+router.put("/:id/stock", updateProductStock);
 
 export default router;
