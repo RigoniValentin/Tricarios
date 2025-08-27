@@ -1,0 +1,94 @@
+### === BÚSQUEDA INTELIGENTE DE PRODUCTOS ===
+
+@baseUrl = https://tricariosgrowshop.com/api/v1
+# @baseUrl = http://localhost:3015/api/v1
+
+### 1. Búsqueda exacta - debería encontrar "Combo picador + plato v2"
+GET {{baseUrl}}/products/search?q=Combo picador + plato v2
+Content-Type: application/json
+
+### 2. Búsqueda parcial - debería encontrar el combo
+GET {{baseUrl}}/products/search?q=combo picador
+Content-Type: application/json
+
+### 3. Búsqueda insensible a mayúsculas
+GET {{baseUrl}}/products/search?q=COMBO PICADOR
+Content-Type: application/json
+
+### 4. Búsqueda con espacios extra
+GET {{baseUrl}}/products/search?q=   combo    picador   +
+Content-Type: application/json
+
+### 5. Búsqueda palabras en distinto orden
+GET {{baseUrl}}/products/search?q=plato combo picador
+Content-Type: application/json
+
+### 6. Búsqueda solo una palabra
+GET {{baseUrl}}/products/search?q=combo
+Content-Type: application/json
+
+### 7. Búsqueda con caracteres especiales
+GET {{baseUrl}}/products/search?q=combo +
+Content-Type: application/json
+
+### 8. Búsqueda con score de relevancia
+GET {{baseUrl}}/products/search?q=combo picador&includeScore=true
+Content-Type: application/json
+
+### 9. Búsqueda con filtros adicionales
+GET {{baseUrl}}/products/search?q=combo&category=Iluminación&inStock=true
+Content-Type: application/json
+
+### 10. Búsqueda con rango de precios
+GET {{baseUrl}}/products/search?q=combo&minPrice=500000&maxPrice=2000000
+Content-Type: application/json
+
+### 11. Búsqueda con paginación
+GET {{baseUrl}}/products/search?q=combo&page=1&limit=5
+Content-Type: application/json
+
+### 12. Búsqueda por descripción
+GET {{baseUrl}}/products/search?q=descripcion combo
+Content-Type: application/json
+
+### === COMPARACIÓN CON BÚSQUEDA REGULAR ===
+
+### 13. Búsqueda regular (anterior) - para comparar
+GET {{baseUrl}}/products?search=combo picador
+Content-Type: application/json
+
+### 14. Búsqueda regular con filtros
+GET {{baseUrl}}/products?search=combo&category=Iluminación
+Content-Type: application/json
+
+### === CASOS EDGE ===
+
+### 15. Búsqueda vacía (debería dar error)
+GET {{baseUrl}}/products/search?q=
+Content-Type: application/json
+
+### 16. Búsqueda sin parámetro q (debería dar error)
+GET {{baseUrl}}/products/search
+Content-Type: application/json
+
+### 17. Búsqueda con solo espacios
+GET {{baseUrl}}/products/search?q=   
+Content-Type: application/json
+
+### 18. Búsqueda con caracteres especiales únicamente
+GET {{baseUrl}}/products/search?q=+++
+Content-Type: application/json
+
+### 19. Búsqueda muy larga
+GET {{baseUrl}}/products/search?q=esto es una búsqueda muy larga con muchas palabras para probar el sistema
+Content-Type: application/json
+
+### === PERFORMANCE TESTS ===
+
+### 20. Búsqueda con límite alto
+GET {{baseUrl}}/products/search?q=combo&limit=50
+Content-Type: application/json
+
+### 21. Búsqueda con múltiples filtros
+GET {{baseUrl}}/products/search?q=combo&category=Iluminación&inStock=true&featured=true&minPrice=100000&page=1&limit=20&includeScore=true
+Content-Type: application/json

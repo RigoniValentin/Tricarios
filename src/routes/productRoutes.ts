@@ -6,10 +6,14 @@ import {
   updateProduct,
   deleteProduct,
   updateProductStock,
+  searchProducts,
 } from "@controllers/productControllerNew";
 import { uploadProductImages, handleUploadError } from "@middlewares/upload";
 
 const router = Router();
+
+// GET /api/v1/products/search - Búsqueda avanzada (debe ir antes que /:id)
+router.get("/search", searchProducts);
 
 // GET /api/v1/products - Obtener todos los productos (con filtros y paginación)
 router.get("/", getProducts);
