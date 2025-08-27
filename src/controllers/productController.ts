@@ -13,12 +13,6 @@ import {
 } from "@middlewares/upload";
 import uploadMiddleware from "@middlewares/upload";
 import {
-  createSearchQueries,
-  normalizeSearchTerm,
-  extractSearchWords,
-  sortByRelevance
-} from "@utils/searchUtils";
-import {
   IProductSpecifications,
   parseSpecificationsFromString,
   sanitizeSpecifications,
@@ -181,6 +175,10 @@ export const getProducts = async (
     }
 
     if (search) {
+      // Importar utilidades de búsqueda
+      const { createSearchQueries, normalizeSearchTerm, extractSearchWords } =
+        await import("@utils/searchUtils");
+
       const searchTerm = search as string;
       const normalizedSearch = normalizeSearchTerm(searchTerm);
 
@@ -249,6 +247,8 @@ export const getProducts = async (
 
     if (search) {
       // Si hay búsqueda, aplicar ordenamiento por relevancia
+      const { sortByRelevance } = await import("@utils/searchUtils");
+
       // Obtener todos los productos que coinciden con la búsqueda (sin paginación inicial)
       const allMatchingProducts = await Product.find(filter);
 
@@ -339,6 +339,13 @@ export const searchProducts = async (
       return;
     }
 
+    const {
+      createSearchQueries,
+      normalizeSearchTerm,
+      extractSearchWords,
+      sortByRelevance,
+    } = await import("@utils/searchUtils");
+
     const searchTerm = search as string;
     const normalizedSearch = normalizeSearchTerm(searchTerm);
 
@@ -382,31 +389,8 @@ export const searchProducts = async (
     }
 
     // Crear queries de búsqueda
-    let exactMatchQuery, partialTermQuery, allWordsQuery, anyWordQuery;
-    
-    try {
-      const searchQueries = createSearchQueries(searchTerm);
-      exactMatchQuery = searchQueries.exactMatchQuery;
-      partialTermQuery = searchQueries.partialTermQuery; 
-      allWordsQuery = searchQueries.allWordsQuery;
-      anyWordQuery = searchQueries.anyWordQuery;
-    } catch (queryError) {
-      logOperation("ERROR_CREAR_QUERIES", {
-        error: queryError instanceof Error ? queryError.message : queryError,
-        searchTerm
-      });
-      
-      // Fallback a búsqueda simple si falla la creación de queries complejas
-      exactMatchQuery = {
-        $or: [
-          { name: { $regex: new RegExp(searchTerm, "i") } },
-          { description: { $regex: new RegExp(searchTerm, "i") } }
-        ]
-      };
-      partialTermQuery = exactMatchQuery;
-      allWordsQuery = null;
-      anyWordQuery = null;
-    }
+    const { exactMatchQuery, partialTermQuery, allWordsQuery, anyWordQuery } =
+      createSearchQueries(searchTerm);
 
     // Combinar queries de búsqueda
     const searchConditions: any[] = [];

@@ -12,12 +12,6 @@ import {
   handleUploadError,
 } from "@middlewares/upload";
 import uploadMiddleware from "@middlewares/upload";
-import {
-  createSearchQueries,
-  normalizeSearchTerm,
-  extractSearchWords,
-  sortByRelevance
-} from "@utils/searchUtils";
 
 const MAX_FILES = uploadMiddleware.MAX_FILES;
 
@@ -185,6 +179,10 @@ export const getProducts = async (
     }
 
     if (search) {
+      // Importar utilidades de búsqueda
+      const { createSearchQueries, normalizeSearchTerm, extractSearchWords } =
+        await import("@utils/searchUtils");
+
       const searchTerm = search as string;
       const normalizedSearch = normalizeSearchTerm(searchTerm);
 
@@ -253,6 +251,8 @@ export const getProducts = async (
 
     if (search) {
       // Si hay búsqueda, aplicar ordenamiento por relevancia
+      const { sortByRelevance } = await import("@utils/searchUtils");
+
       // Obtener todos los productos que coinciden con la búsqueda (sin paginación inicial)
       const allMatchingProducts = await Product.find(filter);
 
@@ -321,6 +321,12 @@ export const searchProducts = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("🔍 SEARCH REQUEST RECEIVED");
+    console.log("🔍 Query:", req.query);
+    console.log("🔍 Method:", req.method);
+    console.log("🔍 URL:", req.url);
+    console.log("🔍 Headers:", req.headers);
+
     const {
       q: search,
       category,
@@ -335,7 +341,22 @@ export const searchProducts = async (
       includeScore = "false",
     } = req.query;
 
+    console.log("🔍 Parsed params:", {
+      search,
+      category,
+      categoryId,
+      minPrice,
+      maxPrice,
+      inStock,
+      featured,
+      tags,
+      page,
+      limit,
+      includeScore,
+    });
+
     if (!search) {
+      console.log("❌ No search parameter provided");
       res.status(400).json({
         success: false,
         message: "Parámetro de búsqueda 'q' es requerido",
@@ -343,164 +364,187 @@ export const searchProducts = async (
       return;
     }
 
-    const searchTerm = search as string;
-    const normalizedSearch = normalizeSearchTerm(searchTerm);
-
-    logOperation("BUSQUEDA_AVANZADA_INICIADA", {
-      searchTerm,
-      normalizedSearch,
-      words: extractSearchWords(searchTerm),
-      includeScore: includeScore === "true",
-    });
-
-    // Construir filtros adicionales
-    let additionalFilters: any = {};
-
-    if (category) {
-      additionalFilters.category = category;
-    }
-
-    if (categoryId) {
-      additionalFilters.categoryId = categoryId;
-    }
-
-    if (minPrice || maxPrice) {
-      additionalFilters.price = {};
-      if (minPrice) additionalFilters.price.$gte = Number(minPrice);
-      if (maxPrice) additionalFilters.price.$lte = Number(maxPrice);
-    }
-
-    if (inStock === "true") {
-      additionalFilters.inStock = true;
-    } else if (inStock === "false") {
-      additionalFilters.inStock = false;
-    }
-
-    if (featured === "true") {
-      additionalFilters.featured = true;
-    }
-
-    if (tags) {
-      const tagArray = Array.isArray(tags) ? tags : [tags];
-      additionalFilters.tags = { $in: tagArray };
-    }
-
-    // Crear queries de búsqueda
-    let exactMatchQuery, partialTermQuery, allWordsQuery, anyWordQuery;
-    
+    console.log("🔍 Importing search utilities...");
     try {
-      const searchQueries = createSearchQueries(searchTerm);
-      exactMatchQuery = searchQueries.exactMatchQuery;
-      partialTermQuery = searchQueries.partialTermQuery; 
-      allWordsQuery = searchQueries.allWordsQuery;
-      anyWordQuery = searchQueries.anyWordQuery;
-    } catch (queryError) {
-      logOperation("ERROR_CREAR_QUERIES", {
-        error: queryError instanceof Error ? queryError.message : queryError,
-        searchTerm
-      });
-      
-      // Fallback a búsqueda simple si falla la creación de queries complejas
-      exactMatchQuery = {
-        $or: [
-          { name: { $regex: new RegExp(searchTerm, "i") } },
-          { description: { $regex: new RegExp(searchTerm, "i") } }
-        ]
-      };
-      partialTermQuery = exactMatchQuery;
-      allWordsQuery = null;
-      anyWordQuery = null;
-    }
+      const {
+        createSearchQueries,
+        normalizeSearchTerm,
+        extractSearchWords,
+        sortByRelevance,
+      } = await import("@utils/searchUtils");
+      console.log("✅ Search utilities imported successfully");
 
-    // Combinar queries de búsqueda
-    const searchConditions: any[] = [];
+      const searchTerm = search as string;
+      const normalizedSearch = normalizeSearchTerm(searchTerm);
+      console.log("🔍 Normalized search term:", normalizedSearch);
 
-    if (exactMatchQuery.$or) {
-      searchConditions.push(...exactMatchQuery.$or);
-    }
-
-    if (partialTermQuery.$or) {
-      searchConditions.push(...partialTermQuery.$or);
-    }
-
-    if (allWordsQuery) {
-      searchConditions.push(allWordsQuery);
-    }
-
-    if (anyWordQuery) {
-      searchConditions.push(anyWordQuery);
-    }
-
-    // Combinar filtros de búsqueda y adicionales
-    const finalFilter = {
-      ...additionalFilters,
-      $or: searchConditions,
-    };
-
-    // Configurar paginación
-    const pageNum = Math.max(1, parseInt(page as string));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
-    const skip = (pageNum - 1) * limitNum;
-
-    // Obtener todos los productos que coinciden
-    const allMatchingProducts = await Product.find(finalFilter);
-
-    // Ordenar por relevancia con manejo de errores
-    let sortedProducts;
-    try {
-      sortedProducts = sortByRelevance(allMatchingProducts, searchTerm);
-    } catch (sortError) {
-      logOperation("ERROR_ORDENAMIENTO_RELEVANCIA", {
-        error: sortError instanceof Error ? sortError.message : sortError,
+      logOperation("BUSQUEDA_AVANZADA_INICIADA", {
         searchTerm,
-        productCount: allMatchingProducts.length
-      });
-      
-      // Fallback: ordenar por fecha de creación descendente
-      sortedProducts = allMatchingProducts.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-    }
-
-    // Aplicar paginación
-    const paginatedProducts = sortedProducts.slice(skip, skip + limitNum);
-    const total = sortedProducts.length;
-
-    logOperation("BUSQUEDA_AVANZADA_COMPLETADA", {
-      total,
-      pagina: pageNum,
-      limite: limitNum,
-      resultados: paginatedProducts.length,
-      mejorScore: paginatedProducts[0]?.relevanceScore || 0,
-    });
-
-    res.json({
-      success: true,
-      data: paginatedProducts,
-      searchInfo: {
-        query: searchTerm,
-        normalizedQuery: normalizedSearch,
+        normalizedSearch,
         words: extractSearchWords(searchTerm),
         includeScore: includeScore === "true",
-      },
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
+      });
+
+      // Construir filtros adicionales
+      let additionalFilters: any = {};
+
+      if (category) {
+        additionalFilters.category = category;
+      }
+
+      if (categoryId) {
+        additionalFilters.categoryId = categoryId;
+      }
+
+      if (minPrice || maxPrice) {
+        additionalFilters.price = {};
+        if (minPrice) additionalFilters.price.$gte = Number(minPrice);
+        if (maxPrice) additionalFilters.price.$lte = Number(maxPrice);
+      }
+
+      if (inStock === "true") {
+        additionalFilters.inStock = true;
+      } else if (inStock === "false") {
+        additionalFilters.inStock = false;
+      }
+
+      if (featured === "true") {
+        additionalFilters.featured = true;
+      }
+
+      if (tags) {
+        const tagArray = Array.isArray(tags) ? tags : [tags];
+        additionalFilters.tags = { $in: tagArray };
+      }
+
+      console.log("🔍 Additional filters:", additionalFilters);
+
+      // Crear queries de búsqueda
+      console.log("🔍 Creating search queries...");
+      const { exactMatchQuery, partialTermQuery, allWordsQuery, anyWordQuery } =
+        createSearchQueries(searchTerm);
+
+      console.log("🔍 Search queries created:", {
+        exactMatchQuery,
+        partialTermQuery,
+        allWordsQuery,
+        anyWordQuery,
+      });
+
+      // Combinar queries de búsqueda
+      const searchConditions: any[] = [];
+
+      if (exactMatchQuery.$or) {
+        searchConditions.push(...exactMatchQuery.$or);
+      }
+
+      if (partialTermQuery.$or) {
+        searchConditions.push(...partialTermQuery.$or);
+      }
+
+      if (allWordsQuery) {
+        searchConditions.push(allWordsQuery);
+      }
+
+      if (anyWordQuery) {
+        searchConditions.push(anyWordQuery);
+      }
+
+      console.log("🔍 Search conditions:", searchConditions.length);
+
+      // Combinar filtros de búsqueda y adicionales
+      const finalFilter = {
+        ...additionalFilters,
+        $or: searchConditions,
+      };
+
+      console.log("🔍 Final filter:", JSON.stringify(finalFilter, null, 2));
+
+      // Configurar paginación
+      const pageNum = Math.max(1, parseInt(page as string));
+      const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
+      const skip = (pageNum - 1) * limitNum;
+
+      console.log("🔍 Pagination:", { pageNum, limitNum, skip });
+
+      // Obtener todos los productos que coinciden
+      console.log("🔍 Executing database query...");
+      const allMatchingProducts = await Product.find(finalFilter);
+      console.log("🔍 Products found:", allMatchingProducts.length);
+
+      // Ordenar por relevancia
+      console.log("🔍 Sorting by relevance...");
+      const sortedProducts = sortByRelevance(allMatchingProducts, searchTerm);
+      console.log("🔍 Products sorted");
+
+      // Aplicar paginación
+      const paginatedProducts = sortedProducts.slice(skip, skip + limitNum);
+      const total = sortedProducts.length;
+
+      console.log("🔍 Final results:", {
         total,
-        pages: Math.ceil(total / limitNum),
-        hasNext: pageNum < Math.ceil(total / limitNum),
-        hasPrev: pageNum > 1,
-      },
-    });
+        pageNum,
+        limitNum,
+        paginatedCount: paginatedProducts.length,
+      });
+
+      logOperation("BUSQUEDA_AVANZADA_COMPLETADA", {
+        total,
+        pagina: pageNum,
+        limite: limitNum,
+        resultados: paginatedProducts.length,
+        mejorScore: paginatedProducts[0]?.relevanceScore || 0,
+      });
+
+      console.log("🔍 Sending response...");
+      res.json({
+        success: true,
+        data: paginatedProducts,
+        searchInfo: {
+          query: searchTerm,
+          normalizedQuery: normalizedSearch,
+          words: extractSearchWords(searchTerm),
+          includeScore: includeScore === "true",
+        },
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+          hasNext: pageNum < Math.ceil(total / limitNum),
+          hasPrev: pageNum > 1,
+        },
+      });
+    } catch (importError) {
+      console.error("❌ Error importing search utilities:", importError);
+      throw importError;
+    }
   } catch (error) {
+    console.error(
+      "❌ SEARCH ERROR:",
+      error instanceof Error ? error.message : error
+    );
+    console.error(
+      "❌ STACK:",
+      error instanceof Error ? error.stack : undefined
+    );
+    console.error("❌ Full error object:", error);
+
     logOperation("ERROR_BUSQUEDA_AVANZADA", {
       error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     res.status(500).json({
       success: false,
       message: "Error en la búsqueda avanzada",
       error: error instanceof Error ? error.message : error,
+      stack:
+        process.env.NODE_ENV === "development"
+          ? error instanceof Error
+            ? error.stack
+            : undefined
+          : undefined,
     });
   }
 };
