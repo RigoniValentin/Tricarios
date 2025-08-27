@@ -321,12 +321,6 @@ export const searchProducts = async (
   res: Response
 ): Promise<void> => {
   try {
-    console.log("🔍 SEARCH REQUEST RECEIVED");
-    console.log("🔍 Query:", req.query);
-    console.log("🔍 Method:", req.method);
-    console.log("🔍 URL:", req.url);
-    console.log("🔍 Headers:", req.headers);
-
     const {
       q: search,
       category,
@@ -341,22 +335,7 @@ export const searchProducts = async (
       includeScore = "false",
     } = req.query;
 
-    console.log("🔍 Parsed params:", {
-      search,
-      category,
-      categoryId,
-      minPrice,
-      maxPrice,
-      inStock,
-      featured,
-      tags,
-      page,
-      limit,
-      includeScore,
-    });
-
     if (!search) {
-      console.log("❌ No search parameter provided");
       res.status(400).json({
         success: false,
         message: "Parámetro de búsqueda 'q' es requerido",
@@ -364,7 +343,6 @@ export const searchProducts = async (
       return;
     }
 
-    console.log("🔍 Importing search utilities...");
     try {
       const {
         createSearchQueries,
@@ -372,13 +350,9 @@ export const searchProducts = async (
         extractSearchWords,
         sortByRelevance,
       } = await import("@utils/searchUtils");
-      console.log("✅ Search utilities imported successfully");
 
       const searchTerm = search as string;
-      const normalizedSearch = normalizeSearchTerm(searchTerm);
-      console.log("🔍 Normalized search term:", normalizedSearch);
-
-      logOperation("BUSQUEDA_AVANZADA_INICIADA", {
+      const normalizedSearch = normalizeSearchTerm(searchTerm);      logOperation("BUSQUEDA_AVANZADA_INICIADA", {
         searchTerm,
         normalizedSearch,
         words: extractSearchWords(searchTerm),
@@ -417,19 +391,9 @@ export const searchProducts = async (
         additionalFilters.tags = { $in: tagArray };
       }
 
-      console.log("🔍 Additional filters:", additionalFilters);
-
       // Crear queries de búsqueda
-      console.log("🔍 Creating search queries...");
       const { exactMatchQuery, partialTermQuery, allWordsQuery, anyWordQuery } =
         createSearchQueries(searchTerm);
-
-      console.log("🔍 Search queries created:", {
-        exactMatchQuery,
-        partialTermQuery,
-        allWordsQuery,
-        anyWordQuery,
-      });
 
       // Combinar queries de búsqueda
       const searchConditions: any[] = [];
@@ -450,43 +414,26 @@ export const searchProducts = async (
         searchConditions.push(anyWordQuery);
       }
 
-      console.log("🔍 Search conditions:", searchConditions.length);
-
       // Combinar filtros de búsqueda y adicionales
       const finalFilter = {
         ...additionalFilters,
         $or: searchConditions,
       };
 
-      console.log("🔍 Final filter:", JSON.stringify(finalFilter, null, 2));
-
       // Configurar paginación
       const pageNum = Math.max(1, parseInt(page as string));
       const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
       const skip = (pageNum - 1) * limitNum;
 
-      console.log("🔍 Pagination:", { pageNum, limitNum, skip });
-
       // Obtener todos los productos que coinciden
-      console.log("🔍 Executing database query...");
       const allMatchingProducts = await Product.find(finalFilter);
-      console.log("🔍 Products found:", allMatchingProducts.length);
 
       // Ordenar por relevancia
-      console.log("🔍 Sorting by relevance...");
       const sortedProducts = sortByRelevance(allMatchingProducts, searchTerm);
-      console.log("🔍 Products sorted");
 
       // Aplicar paginación
       const paginatedProducts = sortedProducts.slice(skip, skip + limitNum);
       const total = sortedProducts.length;
-
-      console.log("🔍 Final results:", {
-        total,
-        pageNum,
-        limitNum,
-        paginatedCount: paginatedProducts.length,
-      });
 
       logOperation("BUSQUEDA_AVANZADA_COMPLETADA", {
         total,
@@ -496,7 +443,6 @@ export const searchProducts = async (
         mejorScore: paginatedProducts[0]?.relevanceScore || 0,
       });
 
-      console.log("🔍 Sending response...");
       res.json({
         success: true,
         data: paginatedProducts,
@@ -516,20 +462,9 @@ export const searchProducts = async (
         },
       });
     } catch (importError) {
-      console.error("❌ Error importing search utilities:", importError);
       throw importError;
     }
   } catch (error) {
-    console.error(
-      "❌ SEARCH ERROR:",
-      error instanceof Error ? error.message : error
-    );
-    console.error(
-      "❌ STACK:",
-      error instanceof Error ? error.stack : undefined
-    );
-    console.error("❌ Full error object:", error);
-
     logOperation("ERROR_BUSQUEDA_AVANZADA", {
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
@@ -539,12 +474,6 @@ export const searchProducts = async (
       success: false,
       message: "Error en la búsqueda avanzada",
       error: error instanceof Error ? error.message : error,
-      stack:
-        process.env.NODE_ENV === "development"
-          ? error instanceof Error
-            ? error.stack
-            : undefined
-          : undefined,
     });
   }
 };
