@@ -352,7 +352,8 @@ export const searchProducts = async (
       } = await import("@utils/searchUtils");
 
       const searchTerm = search as string;
-      const normalizedSearch = normalizeSearchTerm(searchTerm);      logOperation("BUSQUEDA_AVANZADA_INICIADA", {
+      const normalizedSearch = normalizeSearchTerm(searchTerm);
+      logOperation("BUSQUEDA_AVANZADA_INICIADA", {
         searchTerm,
         normalizedSearch,
         words: extractSearchWords(searchTerm),
@@ -533,6 +534,7 @@ export const createProduct = async (
       description,
       price,
       originalPrice,
+      managementId,
       category,
       categoryId,
       stockCount,
@@ -598,6 +600,37 @@ export const createProduct = async (
       return;
     }
 
+    // Validar managementId si se proporciona
+    if (managementId !== undefined && managementId !== null) {
+      const managementIdNum = Number(managementId);
+      if (
+        isNaN(managementIdNum) ||
+        !Number.isInteger(managementIdNum) ||
+        managementIdNum <= 0
+      ) {
+        await cleanupTempFiles(files);
+        res.status(400).json({
+          success: false,
+          message:
+            "El ID de gestión debe ser un número entero positivo mayor a 0",
+        });
+        return;
+      }
+
+      // Verificar que el managementId no esté ya en uso
+      const existingProduct = await Product.findOne({
+        managementId: managementIdNum,
+      });
+      if (existingProduct) {
+        await cleanupTempFiles(files);
+        res.status(400).json({
+          success: false,
+          message: `El ID de gestión ${managementIdNum} ya está siendo utilizado por otro producto`,
+        });
+        return;
+      }
+    }
+
     // Verificar que la categoría existe
     const categoryExists = await Category.findById(categoryId);
     if (!categoryExists) {
@@ -650,6 +683,7 @@ export const createProduct = async (
       description: description.trim(),
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
+      managementId: managementId ? Number(managementId) : undefined,
       category: category.trim(),
       categoryId,
       gallery: imageUrls,
@@ -729,6 +763,7 @@ export const updateProduct = async (
       description,
       price,
       originalPrice,
+      managementId,
       category,
       categoryId,
       stockCount,
@@ -773,12 +808,47 @@ export const updateProduct = async (
       }
     }
 
+    // Validar managementId si se proporciona
+    if (managementId !== undefined && managementId !== null) {
+      const managementIdNum = Number(managementId);
+      if (
+        isNaN(managementIdNum) ||
+        !Number.isInteger(managementIdNum) ||
+        managementIdNum <= 0
+      ) {
+        await cleanupTempFiles(files);
+        res.status(400).json({
+          success: false,
+          message:
+            "El ID de gestión debe ser un número entero positivo mayor a 0",
+        });
+        return;
+      }
+
+      // Verificar que el managementId no esté ya en uso por otro producto
+      const existingProduct = await Product.findOne({
+        managementId: managementIdNum,
+        _id: { $ne: id }, // Excluir el producto actual
+      });
+      if (existingProduct) {
+        await cleanupTempFiles(files);
+        res.status(400).json({
+          success: false,
+          message: `El ID de gestión ${managementIdNum} ya está siendo utilizado por otro producto`,
+        });
+        return;
+      }
+    }
+
     // Actualizar campos básicos
     if (name !== undefined) product.name = name.trim();
     if (description !== undefined) product.description = description.trim();
     if (price !== undefined) product.price = Number(price);
     if (originalPrice !== undefined)
       product.originalPrice = Number(originalPrice);
+    if (managementId !== undefined) {
+      product.managementId = managementId ? Number(managementId) : undefined;
+    }
     if (category !== undefined) product.category = category.trim();
     if (categoryId !== undefined) product.categoryId = categoryId;
     if (stockCount !== undefined) product.stockCount = Number(stockCount);

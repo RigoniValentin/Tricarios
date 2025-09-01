@@ -55,11 +55,16 @@ export const createSearchQueries = (searchTerm: string) => {
   const escapedTerm = escapeRegex(normalizedTerm);
   const words = extractSearchWords(searchTerm);
 
+  // Verificar si el término de búsqueda es un número (para managementId)
+  const isNumericSearch = /^\d+$/.test(searchTerm.trim());
+  const numericValue = isNumericSearch ? parseInt(searchTerm.trim(), 10) : null;
+
   // Query para coincidencia exacta (mayor prioridad)
   const exactMatchQuery = {
     $or: [
       { name: { $regex: new RegExp(`^${escapedTerm}$`, "i") } },
       { description: { $regex: new RegExp(`^${escapedTerm}$`, "i") } },
+      ...(numericValue !== null ? [{ managementId: numericValue }] : []),
     ],
   };
 
@@ -109,6 +114,8 @@ export const createSearchQueries = (searchTerm: string) => {
     allWordsQuery,
     anyWordQuery,
     words,
+    isNumericSearch,
+    numericValue,
   };
 };
 
@@ -128,8 +135,16 @@ export const calculateRelevanceScore = (
 
   let score = 0;
 
+  // Verificar si es búsqueda numérica para managementId
+  const isNumericSearch = /^\d+$/.test(searchTerm.trim());
+  const numericValue = isNumericSearch ? parseInt(searchTerm.trim(), 10) : null;
+
+  // Coincidencia exacta de managementId (máxima prioridad)
+  if (numericValue !== null && product.managementId === numericValue) {
+    score += config.exactMatchScore * 1.5; // Prioridad extra para managementId
+  }
   // Coincidencia exacta en nombre (máxima prioridad)
-  if (normalizedName === normalizedSearch) {
+  else if (normalizedName === normalizedSearch) {
     score += config.exactMatchScore;
   }
   // Coincidencia exacta en descripción

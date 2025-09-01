@@ -1,0 +1,126 @@
+### Test managementId functionality for Tricarios products
+### Variables
+@baseUrl = http://localhost:3000/api
+@tokenAuth = Bearer YOUR_TOKEN_HERE
+
+### 1. Create product with managementId
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Producto Test con Management ID",
+  "description": "Este es un producto de prueba con managementId",
+  "price": 299.99,
+  "originalPrice": 349.99,
+  "managementId": 1001,
+  "category": "Productos de Prueba",
+  "categoryId": "64f8b4a5b5c7e8d9f0a1b2c3",
+  "stockCount": 10,
+  "gallery": ["/uploads/products/default-product.png"]
+}
+
+### 2. Create product without managementId (should work)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Producto Test sin Management ID",
+  "description": "Este es un producto de prueba sin managementId",
+  "price": 199.99,
+  "category": "Productos de Prueba",
+  "categoryId": "64f8b4a5b5c7e8d9f0a1b2c3",
+  "stockCount": 5,
+  "gallery": ["/uploads/products/default-product.png"]
+}
+
+### 3. Try to create product with duplicate managementId (should fail)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Producto Duplicado",
+  "description": "Este producto debería fallar por managementId duplicado",
+  "price": 399.99,
+  "managementId": 1001,
+  "category": "Productos de Prueba",
+  "categoryId": "64f8b4a5b5c7e8d9f0a1b2c3",
+  "stockCount": 3,
+  "gallery": ["/uploads/products/default-product.png"]
+}
+
+### 4. Try to create product with invalid managementId (should fail)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Producto ID Inválido",
+  "description": "Este producto debería fallar por managementId inválido",
+  "price": 399.99,
+  "managementId": -5,
+  "category": "Productos de Prueba",
+  "categoryId": "64f8b4a5b5c7e8d9f0a1b2c3",
+  "stockCount": 3,
+  "gallery": ["/uploads/products/default-product.png"]
+}
+
+### 5. Try to create product with non-integer managementId (should fail)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Producto ID Decimal",
+  "description": "Este producto debería fallar por managementId decimal",
+  "price": 399.99,
+  "managementId": 10.5,
+  "category": "Productos de Prueba",
+  "categoryId": "64f8b4a5b5c7e8d9f0a1b2c3",
+  "stockCount": 3,
+  "gallery": ["/uploads/products/default-product.png"]
+}
+
+### 6. Search by managementId
+GET {{baseUrl}}/products/search?q=1001
+
+### 7. Search by managementId that doesn't exist
+GET {{baseUrl}}/products/search?q=9999
+
+### 8. Update product managementId
+PUT {{baseUrl}}/products/PRODUCT_ID_HERE
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "managementId": 1002
+}
+
+### 9. Try to update with duplicate managementId (should fail)
+PUT {{baseUrl}}/products/PRODUCT_ID_HERE
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "managementId": 1001
+}
+
+### 10. Remove managementId from product (set to null)
+PUT {{baseUrl}}/products/PRODUCT_ID_HERE
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "managementId": null
+}
+
+### 11. Get all products to verify managementId field presence
+GET {{baseUrl}}/products?limit=50
+
+### 12. Search combining text and managementId
+GET {{baseUrl}}/products/search?q=test
+
+### 13. Search for products by complex query including potential managementId
+GET {{baseUrl}}/products/search?q=producto&includeScore=true

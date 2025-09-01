@@ -1,0 +1,190 @@
+### Test hierarchical categories functionality for Tricarios
+### Variables
+@baseUrl = http://localhost:3015/api
+@tokenAuth = Bearer YOUR_TOKEN_HERE
+
+### 1. Run migration to update existing categories
+POST {{baseUrl}}/categories/migrate
+Authorization: {{tokenAuth}}
+
+### 2. Get all categories in flat view (traditional - compatibility)
+GET {{baseUrl}}/categories?view=flat&limit=20
+
+### 3. Get all categories in hierarchy view
+GET {{baseUrl}}/categories?view=hierarchy
+
+### 4. Create a parent category
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Cannabis Medicinal",
+  "description": "Categoría padre para productos de cannabis medicinal",
+  "icon": "🌿",
+  "color": "from-green-400 to-green-600"
+}
+
+### 5. Create a subcategory (Level 1)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Aceites CBD",
+  "description": "Aceites y tinturas de CBD",
+  "icon": "💧",
+  "color": "from-amber-400 to-amber-600",
+  "parentCategoryId": "PARENT_CATEGORY_ID_HERE"
+}
+
+### 6. Create a sub-subcategory (Level 2)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Aceites de Espectro Completo",
+  "description": "Aceites CBD de espectro completo",
+  "icon": "🌈",
+  "color": "from-purple-400 to-purple-600",
+  "parentCategoryId": "SUBCATEGORY_ID_HERE"
+}
+
+### 7. Try to create level 4 (should fail - max 3 levels)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Sub-sub-subcategory",
+  "description": "This should fail due to depth limit",
+  "parentCategoryId": "SUB_SUBCATEGORY_ID_HERE"
+}
+
+### 8. Try to create circular reference (should fail)
+PUT {{baseUrl}}/categories/PARENT_CATEGORY_ID_HERE
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "parentCategoryId": "SUBCATEGORY_ID_HERE"
+}
+
+### 9. Get subcategories of a parent category
+GET {{baseUrl}}/categories/PARENT_CATEGORY_ID_HERE/subcategories
+
+### 10. Get subcategories with products included
+GET {{baseUrl}}/categories/PARENT_CATEGORY_ID_HERE/subcategories?includeProducts=true
+
+### 11. Get category path (breadcrumb)
+GET {{baseUrl}}/categories/SUB_SUBCATEGORY_ID_HERE/path
+
+### 12. Search categories by parent (root categories only)
+GET {{baseUrl}}/categories?parentId=null&view=flat
+
+### 13. Search categories by specific parent
+GET {{baseUrl}}/categories?parentId=PARENT_CATEGORY_ID_HERE&view=flat
+
+### 14. Update category to change parent
+PUT {{baseUrl}}/categories/SUBCATEGORY_ID_HERE
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "parentCategoryId": null
+}
+
+### 15. Update category to set new parent
+PUT {{baseUrl}}/categories/SUBCATEGORY_ID_HERE
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "parentCategoryId": "PARENT_CATEGORY_ID_HERE"
+}
+
+### 16. Try to delete category with subcategories (should fail)
+DELETE {{baseUrl}}/categories/PARENT_CATEGORY_ID_HERE
+Authorization: {{tokenAuth}}
+
+### 17. Delete leaf category (should work)
+DELETE {{baseUrl}}/categories/SUB_SUBCATEGORY_ID_HERE
+Authorization: {{tokenAuth}}
+
+### 18. Get hierarchy after changes
+GET {{baseUrl}}/categories?view=hierarchy
+
+### 19. Search in hierarchy view
+GET {{baseUrl}}/categories?view=hierarchy&search=cannabis
+
+### 20. Update product counts
+PUT {{baseUrl}}/categories/update-counts
+Authorization: {{tokenAuth}}
+
+### 21. Create category with existing name (should fail)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Cannabis Medicinal",
+  "description": "Duplicate name test",
+  "icon": "🌿"
+}
+
+### 22. Test pagination in hierarchy view
+GET {{baseUrl}}/categories?view=hierarchy&page=1&limit=5
+
+### 23. Test pagination in flat view
+GET {{baseUrl}}/categories?view=flat&page=1&limit=5
+
+### 24. Create multiple levels for testing
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Equipos de Cultivo",
+  "description": "Categoría padre para equipos",
+  "icon": "⚙️",
+  "color": "from-blue-400 to-blue-600"
+}
+
+### 25. Create subcategory under new parent
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "Iluminación",
+  "description": "Equipos de iluminación para cultivo",
+  "icon": "💡",
+  "color": "from-yellow-400 to-yellow-600",
+  "parentCategoryId": "EQUIPOS_CATEGORY_ID_HERE"
+}
+
+### 26. Test level calculation
+GET {{baseUrl}}/categories/ILUMINACION_CATEGORY_ID_HERE
+
+### 27. Create third level
+POST {{baseUrl}}/categories
+Content-Type: application/json
+Authorization: {{tokenAuth}}
+
+{
+  "name": "LED",
+  "description": "Luces LED para cultivo",
+  "icon": "🔆",
+  "color": "from-indigo-400 to-indigo-600",
+  "parentCategoryId": "ILUMINACION_CATEGORY_ID_HERE"
+}
+
+### 28. Verify hierarchy structure
+GET {{baseUrl}}/categories?view=hierarchy
+
+### 29. Test category path for deep category
+GET {{baseUrl}}/categories/LED_CATEGORY_ID_HERE/path
+
+### 30. Test isParent flag updates
+GET {{baseUrl}}/categories/EQUIPOS_CATEGORY_ID_HERE

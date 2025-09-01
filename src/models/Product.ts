@@ -9,6 +9,7 @@ export interface IProduct extends Document {
   description: string;
   price: number;
   originalPrice?: number;
+  managementId?: number; // ID numérico opcional para gestión interna
   category: string; // Nombre de la categoría
   categoryId: mongoose.Types.ObjectId; // ID de la categoría
   image: string; // Imagen principal
@@ -47,6 +48,19 @@ const ProductSchema: Schema = new Schema(
     originalPrice: {
       type: Number,
       min: [0, "El precio original no puede ser negativo"],
+    },
+    managementId: {
+      type: Number,
+      required: false,
+      unique: true,
+      sparse: true, // Permite múltiples documentos sin managementId
+      min: [1, "El ID de gestión debe ser un número positivo mayor a 0"],
+      validate: {
+        validator: function (v: number) {
+          return v == null || (Number.isInteger(v) && v > 0);
+        },
+        message: "El ID de gestión debe ser un número entero positivo",
+      },
     },
     category: {
       type: String,
@@ -138,6 +152,7 @@ ProductSchema.index({ inStock: 1 });
 ProductSchema.index({ featured: 1 });
 ProductSchema.index({ rating: 1 });
 ProductSchema.index({ tags: 1 });
+ProductSchema.index({ managementId: 1 }, { sparse: true }); // Índice único para managementId
 
 // Virtual para calcular descuento automáticamente
 ProductSchema.virtual("discountCalculated").get(function (this: IProduct) {
