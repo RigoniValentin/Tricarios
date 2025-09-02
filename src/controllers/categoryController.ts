@@ -44,7 +44,7 @@ export const getCategories = async (
     if (view === "hierarchy") {
       // Vista jerárquica - construir árbol de categorías
       let filter: any = {};
-      
+
       if (search) {
         filter.$or = [
           { name: { $regex: search, $options: "i" } },
@@ -258,7 +258,8 @@ export const createCategory = async (
       if (parent.level >= 3) {
         res.status(400).json({
           success: false,
-          message: "Se ha alcanzado el límite máximo de profundidad (3 niveles)",
+          message:
+            "Se ha alcanzado el límite máximo de profundidad (3 niveles)",
         });
         return;
       }
@@ -360,7 +361,8 @@ export const updateCategory = async (
         if (parent.level >= 3) {
           res.status(400).json({
             success: false,
-            message: "Se ha alcanzado el límite máximo de profundidad (3 niveles)",
+            message:
+              "Se ha alcanzado el límite máximo de profundidad (3 niveles)",
           });
           return;
         }
@@ -368,19 +370,20 @@ export const updateCategory = async (
         // Verificar que no se cree una referencia circular
         let current: ICategory | null = parent;
         const visitedIds = new Set<string>();
-        
+
         while (current && current.parentCategoryId) {
           const currentId = current._id?.toString();
           if (!currentId) break;
-          
+
           if (visitedIds.has(currentId) || currentId === id) {
             res.status(400).json({
               success: false,
-              message: "Esta operación crearía una referencia circular en la jerarquía",
+              message:
+                "Esta operación crearía una referencia circular en la jerarquía",
             });
             return;
           }
-          
+
           visitedIds.add(currentId);
           current = await Category.findById(current.parentCategoryId);
           if (!current) break;
@@ -522,8 +525,8 @@ export const deleteCategory = async (
     }
 
     // Verificar si tiene subcategorías
-    const subcategoriesCount = await Category.countDocuments({ 
-      parentCategoryId: id 
+    const subcategoriesCount = await Category.countDocuments({
+      parentCategoryId: id,
     });
 
     if (subcategoriesCount > 0) {
@@ -656,11 +659,7 @@ export const getSubcategories = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { 
-      page = "1", 
-      limit = "10",
-      includeProducts = "false" 
-    } = req.query;
+    const { page = "1", limit = "10", includeProducts = "false" } = req.query;
 
     logOperation("OBTENER_SUBCATEGORIAS", { parentId: id });
 
@@ -767,7 +766,10 @@ export const getCategoryPath = async (
     // Construir ruta hacia arriba
     while (current) {
       path.unshift(current);
-      if (current.parentCategoryId && typeof current.parentCategoryId === 'object') {
+      if (
+        current.parentCategoryId &&
+        typeof current.parentCategoryId === "object"
+      ) {
         current = current.parentCategoryId as any;
       } else {
         current = null;
@@ -777,7 +779,11 @@ export const getCategoryPath = async (
     logOperation("RUTA_CATEGORIA_OBTENIDA", {
       categoryId: id,
       pathLength: path.length,
-      path: path.map(cat => ({ id: cat._id, name: cat.name, level: cat.level })),
+      path: path.map((cat) => ({
+        id: cat._id,
+        name: cat.name,
+        level: cat.level,
+      })),
     });
 
     res.json({

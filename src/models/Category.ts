@@ -85,7 +85,7 @@ CategorySchema.index({ isParent: 1 });
 CategorySchema.pre("save", async function (next) {
   try {
     const CategoryModel = this.constructor as ICategoryModel;
-    
+
     // Si tiene categoría padre
     if (this.parentCategoryId) {
       const parent = await CategoryModel.findById(this.parentCategoryId);
@@ -95,25 +95,29 @@ CategorySchema.pre("save", async function (next) {
 
       // Verificar límite de profundidad
       if (parent.level >= 3) {
-        throw new Error("Se ha alcanzado el límite máximo de profundidad (3 niveles)");
+        throw new Error(
+          "Se ha alcanzado el límite máximo de profundidad (3 niveles)"
+        );
       }
 
       // Verificar que no sea una referencia circular
       let current: ICategory | null = parent;
       const visitedIds = new Set<string>();
-      
+
       while (current && current.parentCategoryId) {
         const currentId = current._id?.toString();
         if (!currentId) break;
-        
+
         if (visitedIds.has(currentId)) {
           throw new Error("Referencia circular detectada en la jerarquía");
         }
-        
+
         if (current.parentCategoryId.toString() === this._id?.toString()) {
-          throw new Error("Referencia circular detectada: una categoría no puede ser padre de sí misma");
+          throw new Error(
+            "Referencia circular detectada: una categoría no puede ser padre de sí misma"
+          );
         }
-        
+
         visitedIds.add(currentId);
         current = await CategoryModel.findById(current.parentCategoryId);
         if (!current) break;
@@ -133,8 +137,8 @@ CategorySchema.pre("save", async function (next) {
       this.level = 0;
       // Verificar si ya tiene subcategorías para determinar isParent
       if (this._id) {
-        const hasSubcategories = await CategoryModel.exists({ 
-          parentCategoryId: this._id 
+        const hasSubcategories = await CategoryModel.exists({
+          parentCategoryId: this._id,
         });
         this.isParent = !!hasSubcategories;
       }
@@ -169,8 +173,12 @@ CategorySchema.statics.updateAllProductCounts = async function () {
 };
 
 // Método estático para construir jerarquía de categorías
-CategorySchema.statics.buildHierarchy = async function (categories?: ICategory[]) {
-  const allCategories = categories || await this.find().populate("parentCategoryId", "name").sort({ name: 1 });
+CategorySchema.statics.buildHierarchy = async function (
+  categories?: ICategory[]
+) {
+  const allCategories =
+    categories ||
+    (await this.find().populate("parentCategoryId", "name").sort({ name: 1 }));
 
   const categoryMap = new Map<string, any>();
   const rootCategories: any[] = [];
@@ -209,12 +217,12 @@ CategorySchema.statics.migrateExistingCategories = async function () {
 
     // Agregar campos faltantes a categorías existentes
     const result = await this.updateMany(
-      { 
+      {
         $or: [
           { parentCategoryId: { $exists: false } },
           { isParent: { $exists: false } },
-          { level: { $exists: false } }
-        ]
+          { level: { $exists: false } },
+        ],
       },
       {
         $set: {
@@ -225,7 +233,9 @@ CategorySchema.statics.migrateExistingCategories = async function () {
       }
     );
 
-    console.log(`✅ Migración completada: ${result.modifiedCount} categorías actualizadas`);
+    console.log(
+      `✅ Migración completada: ${result.modifiedCount} categorías actualizadas`
+    );
     return result;
   } catch (error) {
     console.error("❌ Error en migración:", error);
