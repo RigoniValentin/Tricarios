@@ -1,0 +1,26 @@
+  "_moduleAliases": {
+    "@server": "src/server",
+    "@config": "src/config",
+    "@services": "src/services",
+    "@repositories": "src/repositories",
+    "@routes": "src/routes",
+    "@controllers": "src/controllers",
+    "@models": "src/models",
+    "@middlewares": "src/middlewares",
+    "@utils": "src/utils",
+    "types": "src/types",
+    "app": "src/app.ts"
+  },
+  "_moduleAliases": {
+    "@server": "dist/src/server",
+    "@config": "dist/src/config",
+    "@services": "dist/src/services",
+    "@repositories": "dist/src/repositories",
+    "@routes": "dist/src/routes",
+    "@controllers": "dist/src/controllers",
+    "@models": "dist/src/models",
+    "@middlewares": "dist/src/middlewares",
+    "@utils": "dist/src/utils",
+    "types": "dist/src/types",
+    "app": "dist/src/app.js"
+  },
