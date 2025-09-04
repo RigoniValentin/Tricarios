@@ -843,3 +843,184 @@ export const migrateCategories = async (
     });
   }
 };
+
+// GET /api/v1/categories/product-counts - Obtener conteos de productos por categoría
+export const getCategoryProductCounts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      includeParents = "true",
+      includeLeaves = "true",
+      rollupParents = "true",
+      inStock,
+      featured,
+      search,
+    } = req.query;
+
+    const includeParentsBool = includeParents === "true";
+    const includeLeavesBool = includeLeaves === "true";
+    const rollupParentsBool = rollupParents === "true";
+
+    logOperation("OBTENER_CONTEOS_PRODUCTOS_INICIO", {
+      includeParents: includeParentsBool,
+      includeLeaves: includeLeavesBool,
+      rollupParents: rollupParentsBool,
+      inStock,
+      featured,
+      search,
+    });
+
+    // 1. Build product filters
+    const productFilters: any = {};
+
+    if (inStock !== undefined) {
+      productFilters.inStock = inStock === "true";
+    }
+
+    if (featured !== undefined) {
+      productFilters.featured = featured === "true";
+    }
+
+    if (search) {
+      productFilters.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // 2. Get direct product counts by category (leaf counts)
+    const leafCountsResult = await Product.aggregate([
+      { $match: productFilters },
+      {
+        $group: {
+          _id: "$categoryId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Create map of direct counts
+    const leafCounts: Record<string, number> = {};
+    leafCountsResult.forEach(({ _id, count }) => {
+      if (_id) {
+        leafCounts[_id.toString()] = count;
+      }
+    });
+
+    // 3. Load all categories to build hierarchy
+    const allCategories = await Category.find(
+      {},
+      { _id: 1, parentCategoryId: 1 }
+    );
+
+    // Build maps for hierarchy processing
+    const childrenByParent: Record<string, string[]> = {};
+    const allCategoryIds = new Set<string>();
+
+    allCategories.forEach((cat: any) => {
+      const catId = cat._id.toString();
+      allCategoryIds.add(catId);
+
+      if (cat.parentCategoryId) {
+        const parentId = cat.parentCategoryId.toString();
+        if (!childrenByParent[parentId]) {
+          childrenByParent[parentId] = [];
+        }
+        childrenByParent[parentId].push(catId);
+      }
+    });
+
+    // 4. Initialize counts for all categories
+    const counts: Record<string, number> = {};
+    allCategoryIds.forEach((catId) => {
+      counts[catId] = leafCounts[catId] || 0;
+    });
+
+    // 5. Roll-up counts to parents if requested
+    if (rollupParentsBool) {
+      // Process from bottom-up (children to parents)
+      const processedCategories = new Set<string>();
+
+      const rollupCategory = (categoryId: string): number => {
+        if (processedCategories.has(categoryId)) {
+          return counts[categoryId];
+        }
+
+        let totalCount = leafCounts[categoryId] || 0;
+        const children = childrenByParent[categoryId] || [];
+
+        // Recursively sum children counts
+        for (const childId of children) {
+          totalCount += rollupCategory(childId);
+        }
+
+        counts[categoryId] = totalCount;
+        processedCategories.add(categoryId);
+        return totalCount;
+      };
+
+      // Roll up all categories
+      allCategoryIds.forEach((catId) => {
+        if (!processedCategories.has(catId)) {
+          rollupCategory(catId);
+        }
+      });
+    }
+
+    // 6. Filter results based on includeParents and includeLeaves
+    const finalCounts: Record<string, number> = {};
+
+    allCategories.forEach((cat: any) => {
+      const catId = cat._id.toString();
+      const hasChildren = !!childrenByParent[catId]?.length;
+      const isLeaf = !hasChildren;
+      const isParent = hasChildren;
+
+      let includeCategory = false;
+
+      if (includeParentsBool && isParent) {
+        includeCategory = true;
+      }
+
+      if (includeLeavesBool && isLeaf) {
+        includeCategory = true;
+      }
+
+      if (includeCategory) {
+        finalCounts[catId] = counts[catId];
+      }
+    });
+
+    const updatedAt = new Date().toISOString();
+
+    logOperation("CONTEOS_PRODUCTOS_OBTENIDOS", {
+      totalCategories: allCategories.length,
+      categoriesWithCounts: Object.keys(finalCounts).length,
+      totalProductsInCounts: Object.values(finalCounts).reduce(
+        (sum, count) => sum + count,
+        0
+      ),
+      rollupApplied: rollupParentsBool,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        counts: finalCounts,
+        updatedAt,
+      },
+    });
+  } catch (error) {
+    logOperation("ERROR_CONTEOS_PRODUCTOS", {
+      error: error instanceof Error ? error.message : error,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener los conteos de productos por categoría",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};

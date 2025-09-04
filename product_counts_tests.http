@@ -1,0 +1,107 @@
+### Variables
+@baseUrl = http://localhost:3015/api/v1
+
+###############################################################################
+# 📊 TESTING ENDPOINT DE CONTEOS DE PRODUCTOS POR CATEGORÍA
+###############################################################################
+
+### 1. 📊 Obtener todos los conteos (configuración por defecto)
+# includeParents=true, includeLeaves=true, rollupParents=true
+GET {{baseUrl}}/categories/product-counts
+Content-Type: application/json
+
+### 2. 📊 Obtener solo conteos de categorías padre (con rollup)
+GET {{baseUrl}}/categories/product-counts?includeParents=true&includeLeaves=false&rollupParents=true
+Content-Type: application/json
+
+### 3. 📊 Obtener solo conteos de categorías hoja (sin rollup)
+GET {{baseUrl}}/categories/product-counts?includeParents=false&includeLeaves=true&rollupParents=false
+Content-Type: application/json
+
+### 4. 📊 Obtener conteos directos sin rollup (padres = solo productos directos)
+GET {{baseUrl}}/categories/product-counts?includeParents=true&includeLeaves=true&rollupParents=false
+Content-Type: application/json
+
+### 5. 🔍 Conteos con filtros de productos - Solo productos en stock
+GET {{baseUrl}}/categories/product-counts?inStock=true
+Content-Type: application/json
+
+### 6. ⭐ Conteos con filtros de productos - Solo productos destacados
+GET {{baseUrl}}/categories/product-counts?featured=true
+Content-Type: application/json
+
+### 7. 📝 Conteos con búsqueda de texto
+GET {{baseUrl}}/categories/product-counts?search=bong
+Content-Type: application/json
+
+### 8. 🔄 Combinación de filtros - En stock Y destacados
+GET {{baseUrl}}/categories/product-counts?inStock=true&featured=true
+Content-Type: application/json
+
+### 9. 📊 Solo padres con rollup y productos en stock
+GET {{baseUrl}}/categories/product-counts?includeParents=true&includeLeaves=false&rollupParents=true&inStock=true
+Content-Type: application/json
+
+### 10. 🧪 Configuración específica para testing
+# Solo hojas, sin rollup, productos específicos
+GET {{baseUrl}}/categories/product-counts?includeParents=false&includeLeaves=true&rollupParents=false&search=pipa
+Content-Type: application/json
+
+###############################################################################
+# 📋 CASOS EDGE Y VALIDACIONES
+###############################################################################
+
+### 11. ❌ Sin parámetros (debería usar defaults)
+GET {{baseUrl}}/categories/product-counts
+Content-Type: application/json
+
+### 12. ❌ Parámetros inválidos (debería manejar gracefully)
+GET {{baseUrl}}/categories/product-counts?includeParents=invalid&includeLeaves=123&rollupParents=xyz
+Content-Type: application/json
+
+### 13. 🔍 Búsqueda que no coincide con nada
+GET {{baseUrl}}/categories/product-counts?search=categoriaquenoexiste123
+Content-Type: application/json
+
+### 14. ⚡ Test de performance con todos los filtros
+GET {{baseUrl}}/categories/product-counts?includeParents=true&includeLeaves=true&rollupParents=true&inStock=true&featured=false&search=
+Content-Type: application/json
+
+###############################################################################
+# 📈 COMPARACIÓN CON ENDPOINT INDIVIDUAL
+###############################################################################
+
+### 15. 📋 Comparar con endpoint individual de categorías
+# Para verificar que los conteos coinciden
+GET {{baseUrl}}/categories?limit=50
+Content-Type: application/json
+
+### 16. 🎯 Obtener categoría específica para comparar conteos
+# Reemplazar con un ID válido de tu base de datos
+GET {{baseUrl}}/categories/68b47d8ce2a98ab7c43623f9
+Content-Type: application/json
+
+###############################################################################
+# 📝 NOTAS DE TESTING
+###############################################################################
+
+# Respuesta esperada:
+# {
+#   "success": true,
+#   "data": {
+#     "counts": {
+#       "68b47d8ce2a98ab7c43623f9": 42,  // CHUCHES (padre) con rollup
+#       "68b771c839cea21795777011": 7,   // Armadores (hoja)
+#       "68b7715539cea21795776e91": 0    // Bandejas (sin productos)
+#     },
+#     "updatedAt": "2025-09-04T12:34:56.000Z"
+#   }
+# }
+
+# Casos a verificar:
+# - rollupParents=true: padres suman todos los productos de sus descendientes
+# - rollupParents=false: padres solo cuentan productos directamente asignados
+# - includeParents=false: no incluir categorías que tienen hijos
+# - includeLeaves=false: no incluir categorías sin hijos
+# - Filtros inStock/featured se aplican antes del conteo
+# - Búsqueda search se aplica a los productos, no a las categorías

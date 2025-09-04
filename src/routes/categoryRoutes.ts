@@ -9,6 +9,7 @@ import {
   getSubcategories,
   getCategoryPath,
   migrateCategories,
+  getCategoryProductCounts,
 } from "@controllers/categoryController";
 import { verifyToken, getPermissions } from "@middlewares/auth";
 
@@ -16,6 +17,9 @@ const router = Router();
 
 // GET /api/v1/categories - Obtener todas las categorías (soporta vista jerárquica)
 router.get("/", getCategories);
+
+// GET /api/v1/categories/product-counts - Obtener conteos de productos por categoría
+router.get("/product-counts", getCategoryProductCounts);
 
 // GET /api/v1/categories/:id - Obtener categoría por ID
 router.get("/:id", getCategoryById);
