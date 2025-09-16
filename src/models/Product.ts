@@ -13,7 +13,7 @@ export interface IProduct extends Document {
   category: string; // Nombre de la categoría
   categoryId: mongoose.Types.ObjectId; // ID de la categoría
   image: string; // Imagen principal
-  gallery: string[]; // Array de todas las imágenes (máximo 4)
+  gallery: string[]; // Array de todas las imágenes (máximo 6)
   inStock: boolean;
   stockCount: number;
   rating: number;
@@ -80,9 +80,9 @@ const ProductSchema: Schema = new Schema(
       type: [String],
       validate: {
         validator: function (v: string[]) {
-          return !v || v.length <= 4; // Validamos solo si existe
+          return !v || v.length <= 6; // Validamos solo si existe
         },
-        message: "Máximo 4 imágenes permitidas",
+        message: "Máximo 6 imágenes permitidas",
       },
       required: false, // Ya no es obligatorio
       default: [], // Array vacío por defecto
@@ -205,12 +205,12 @@ ProductSchema.pre("save", function (this: IProduct, next) {
       Array.isArray(this.gallery)
     );
 
-    if (this.gallery && this.gallery.length > 4) {
+    if (this.gallery && this.gallery.length > 6) {
       console.log(
-        `❌ Demasiadas imágenes: ${this.gallery.length}, máximo permitido: 4`
+        `❌ Demasiadas imágenes: ${this.gallery.length}, máximo permitido: 6`
       );
       return next(
-        new Error("No se pueden tener más de 4 imágenes por producto")
+        new Error("No se pueden tener más de 6 imágenes por producto")
       );
     }
 

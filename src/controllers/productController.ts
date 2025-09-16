@@ -47,7 +47,7 @@ const processImages = (
     (file) => `/uploads/products/${file.filename}`
   );
 
-  // Limitar a máximo 4 imágenes
+  // Limitar a máximo 6 imágenes
   const finalImages = newImageUrls.slice(0, MAX_FILES);
 
   if (newImageUrls.length > MAX_FILES) {

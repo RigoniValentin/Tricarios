@@ -16,7 +16,7 @@ const ALLOWED_MIME_TYPES = [
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 // Máximo número de archivos
-const MAX_FILES = 4;
+const MAX_FILES = 6;
 
 // Configuración de almacenamiento
 const storage = multer.diskStorage({
@@ -88,7 +88,7 @@ const fileFilter = (
   cb(null, true);
 };
 
-// Configuración principal de multer
+// Configuración principal de multer para múltiples archivos
 export const uploadProductImages = multer({
   storage,
   fileFilter,
@@ -98,6 +98,17 @@ export const uploadProductImages = multer({
     fieldSize: 10 * 1024 * 1024, // 10MB para campos de texto
   },
 }).array("images", MAX_FILES);
+
+// Configuración de multer para imagen individual (slots)
+export const uploadSingleProductImage = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 1, // Solo un archivo por vez
+    fieldSize: 10 * 1024 * 1024,
+  },
+}).single("image");
 
 // Alias para compatibilidad con el controller
 export const upload = uploadProductImages;
@@ -237,6 +248,7 @@ export const handleUploadError = (
 // Exportación por defecto con todas las funciones
 export default {
   uploadProductImages,
+  uploadSingleProductImage, // Nueva función para slots individuales
   upload, // Alias para compatibilidad
   deleteImageFile,
   cleanupTempFiles,

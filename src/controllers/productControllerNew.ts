@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs/promises";
 import {
   uploadProductImages,
+  uploadSingleProductImage,
   deleteImageFile,
   cleanupTempFiles,
   validateImageUrl,
@@ -45,7 +46,7 @@ const processImages = (
   // Combinar imágenes existentes con nuevas
   const allImages = [...existingImages, ...newImageUrls];
 
-  // Limitar a máximo 4 imágenes (tomar las primeras 4)
+  // Limitar a máximo 6 imágenes (tomar las primeras 6)
   const finalImages = allImages.slice(0, MAX_FILES);
 
   if (allImages.length > MAX_FILES) {
@@ -83,7 +84,7 @@ const processImagesReplace = (files: Express.Multer.File[]): string[] => {
     (file) => `/uploads/products/${file.filename}`
   );
 
-  // Limitar a máximo 4 imágenes
+  // Limitar a máximo 6 imágenes
   const finalImages = newImageUrls.slice(0, MAX_FILES);
 
   if (newImageUrls.length > MAX_FILES) {
@@ -652,7 +653,7 @@ export const createProduct = async (
       res.status(400).json({
         success: false,
         message:
-          "Debe proporcionar al menos una imagen del producto (máximo 4)",
+          "Debe proporcionar al menos una imagen del producto (máximo 6)",
       });
       return;
     }
@@ -1131,6 +1132,453 @@ export const updateProductStock = async (
     res.status(500).json({
       success: false,
       message: "Error al actualizar el stock",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// 🎯 NUEVAS FUNCIONES DE SLOTS INDIVIDUALES DE IMÁGENES
+///////////////////////////////////////////////////////////////////////////////
+
+// GET /api/v1/products/:id/images - Obtener información de slots de imágenes
+export const getProductImageSlots = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    logOperation("OBTENER_SLOTS_IMAGENES_INICIO", { productId: id });
+
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+      return;
+    }
+
+    // Crear array de 6 slots con información detallada
+    const slots = Array.from({ length: 6 }, (_, index) => {
+      const imageUrl = product.gallery[index] || null;
+      return {
+        slot: index,
+        position: index + 1, // Para frontend (1-6)
+        imageUrl,
+        isEmpty: !imageUrl,
+        isPrimary: index === 0, // El primer slot es siempre la imagen principal
+      };
+    });
+
+    logOperation("SLOTS_IMAGENES_OBTENIDOS", {
+      productId: id,
+      totalSlots: slots.length,
+      occupiedSlots: slots.filter((s) => !s.isEmpty).length,
+      emptySlots: slots.filter((s) => s.isEmpty).length,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        productId: id,
+        productName: product.name,
+        primaryImage: product.image,
+        slots,
+        summary: {
+          total: 6,
+          occupied: slots.filter((s) => !s.isEmpty).length,
+          empty: slots.filter((s) => s.isEmpty).length,
+        },
+      },
+    });
+  } catch (error) {
+    logOperation("ERROR_OBTENER_SLOTS_IMAGENES", {
+      productId: req.params.id,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener información de slots de imágenes",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+// PUT /api/v1/products/:id/images/:slot - Actualizar imagen en slot específico
+export const updateProductImageSlot = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id, slot } = req.params;
+    const slotIndex = parseInt(slot);
+    const file = req.file as Express.Multer.File;
+
+    logOperation("ACTUALIZAR_SLOT_IMAGEN_INICIO", {
+      productId: id,
+      slot: slotIndex,
+      hasFile: !!file,
+    });
+
+    // Validar slot
+    if (isNaN(slotIndex) || slotIndex < 0 || slotIndex > 5) {
+      if (file) {
+        await cleanupTempFiles([file]);
+      }
+      res.status(400).json({
+        success: false,
+        message: "Slot debe estar entre 0 y 5 (posiciones 1-6)",
+      });
+      return;
+    }
+
+    // Validar que se proporcione archivo
+    if (!file) {
+      res.status(400).json({
+        success: false,
+        message: "Debe proporcionar una imagen para actualizar el slot",
+      });
+      return;
+    }
+
+    // Buscar producto
+    const product = await Product.findById(id);
+    if (!product) {
+      await cleanupTempFiles([file]);
+      res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+      return;
+    }
+
+    // Guardar referencia de imagen anterior para eliminar
+    const oldImageUrl = product.gallery[slotIndex];
+
+    // Actualizar el array de gallery
+    const updatedGallery = [...product.gallery];
+
+    // Expandir el array si es necesario (llenar con nulls hasta el slot requerido)
+    while (updatedGallery.length <= slotIndex) {
+      updatedGallery.push("");
+    }
+
+    // Establecer la nueva imagen en el slot específico
+    const newImageUrl = `/uploads/products/${file.filename}`;
+    updatedGallery[slotIndex] = newImageUrl;
+
+    // Limpiar slots vacíos al final del array (opcional)
+    while (
+      updatedGallery.length > 0 &&
+      !updatedGallery[updatedGallery.length - 1]
+    ) {
+      updatedGallery.pop();
+    }
+
+    product.gallery = updatedGallery;
+
+    // Si actualizamos el slot 0 (imagen principal), actualizar también el campo image
+    if (slotIndex === 0) {
+      product.image = newImageUrl;
+    }
+
+    const updatedProduct = await product.save();
+
+    // Eliminar imagen anterior si existía y no era imagen por defecto
+    if (oldImageUrl && !oldImageUrl.includes("default-product")) {
+      await deleteImageFile(oldImageUrl);
+    }
+
+    // Crear estructura de slot actualizado para respuesta
+    const updatedSlot = {
+      slot: slotIndex,
+      position: slotIndex + 1,
+      imageUrl: newImageUrl,
+      isEmpty: false,
+      isPrimary: slotIndex === 0,
+    };
+
+    logOperation("SLOT_IMAGEN_ACTUALIZADO", {
+      productId: id,
+      slot: slotIndex,
+      oldImage: oldImageUrl,
+      newImage: newImageUrl,
+      totalImages: updatedProduct.gallery.length,
+      isPrimary: slotIndex === 0,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        slot: updatedSlot,
+        gallery: updatedProduct.gallery.filter(Boolean), // Solo URLs no vacías
+        primaryImage: updatedProduct.image,
+      },
+    });
+  } catch (error) {
+    // Limpiar archivo subido en caso de error
+    const file = req.file as Express.Multer.File;
+    if (file) {
+      await cleanupTempFiles([file]);
+    }
+
+    logOperation("ERROR_ACTUALIZAR_SLOT_IMAGEN", {
+      productId: req.params.id,
+      slot: req.params.slot,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar imagen del slot",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+// DELETE /api/v1/products/:id/images/:slot - Eliminar imagen de slot específico
+export const deleteProductImageSlot = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id, slot } = req.params;
+    const slotIndex = parseInt(slot);
+
+    logOperation("ELIMINAR_SLOT_IMAGEN_INICIO", {
+      productId: id,
+      slot: slotIndex,
+    });
+
+    // Validar slot
+    if (isNaN(slotIndex) || slotIndex < 0 || slotIndex > 5) {
+      res.status(400).json({
+        success: false,
+        message: "Slot debe estar entre 0 y 5 (posiciones 1-6)",
+      });
+      return;
+    }
+
+    // Buscar producto
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+      return;
+    }
+
+    // Verificar que el slot tenga imagen
+    if (!product.gallery[slotIndex]) {
+      res.status(400).json({
+        success: false,
+        message: `El slot ${slotIndex + 1} ya está vacío`,
+      });
+      return;
+    }
+
+    // Prevenir eliminar la última imagen (debe tener al menos una)
+    const occupiedSlots = product.gallery.filter(
+      (img) => img && img.trim()
+    ).length;
+    if (occupiedSlots <= 1) {
+      res.status(400).json({
+        success: false,
+        message:
+          "No se puede eliminar la última imagen. El producto debe tener al menos una imagen.",
+      });
+      return;
+    }
+
+    // Guardar referencia de imagen a eliminar
+    const imageToDelete = product.gallery[slotIndex];
+
+    // Actualizar el array de gallery
+    const updatedGallery = [...product.gallery];
+    updatedGallery[slotIndex] = ""; // Marcar como vacío
+
+    // Limpiar slots vacíos al final del array
+    while (
+      updatedGallery.length > 0 &&
+      !updatedGallery[updatedGallery.length - 1]
+    ) {
+      updatedGallery.pop();
+    }
+
+    product.gallery = updatedGallery;
+
+    // Si eliminamos la imagen principal (slot 0), establecer la siguiente imagen disponible
+    if (slotIndex === 0) {
+      const nextImage = updatedGallery.find((img) => img && img.trim());
+      product.image = nextImage || "/uploads/products/default-product.png";
+    }
+
+    const updatedProduct = await product.save();
+
+    // Eliminar archivo físico si no era imagen por defecto
+    if (imageToDelete && !imageToDelete.includes("default-product")) {
+      await deleteImageFile(imageToDelete);
+    }
+
+    logOperation("SLOT_IMAGEN_ELIMINADO", {
+      productId: id,
+      slot: slotIndex,
+      deletedImage: imageToDelete,
+      newPrimaryImage: updatedProduct.image,
+      totalImages: updatedProduct.gallery.filter((img) => img && img.trim())
+        .length,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        deletedSlot: slotIndex,
+        gallery: updatedProduct.gallery.filter(Boolean), // Solo URLs no vacías
+        primaryImage: updatedProduct.image,
+      },
+    });
+  } catch (error) {
+    logOperation("ERROR_ELIMINAR_SLOT_IMAGEN", {
+      productId: req.params.id,
+      slot: req.params.slot,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Error al eliminar imagen del slot",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+// POST /api/v1/products/:id/images/:slot/reorder - Reordenar imagen a slot específico
+export const reorderProductImageSlot = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { fromSlot, toSlot } = req.body;
+    const fromSlotIndex = parseInt(fromSlot);
+    const toSlotIndex = parseInt(toSlot);
+
+    logOperation("REORDENAR_SLOT_IMAGEN_INICIO", {
+      productId: id,
+      fromSlot: fromSlotIndex,
+      toSlot: toSlotIndex,
+    });
+
+    // Validar que ambos slots sean válidos
+    if (
+      isNaN(fromSlotIndex) ||
+      fromSlotIndex < 0 ||
+      fromSlotIndex > 5 ||
+      isNaN(toSlotIndex) ||
+      toSlotIndex < 0 ||
+      toSlotIndex > 5
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Los slots deben estar entre 0 y 5 (posiciones 1-6)",
+      });
+      return;
+    }
+
+    if (fromSlotIndex === toSlotIndex) {
+      res.status(400).json({
+        success: false,
+        message: "El slot de origen y destino no pueden ser el mismo",
+      });
+      return;
+    }
+
+    // Buscar producto
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+      return;
+    }
+
+    // Verificar que el slot origen tenga imagen
+    if (!product.gallery[fromSlotIndex]) {
+      res.status(400).json({
+        success: false,
+        message: `El slot ${fromSlotIndex + 1} está vacío`,
+      });
+      return;
+    }
+
+    // Realizar el reordenamiento
+    const updatedGallery = [...product.gallery];
+
+    // Expandir array si es necesario
+    while (updatedGallery.length <= Math.max(fromSlotIndex, toSlotIndex)) {
+      updatedGallery.push("");
+    }
+
+    // Intercambiar imágenes
+    const imageToMove = updatedGallery[fromSlotIndex];
+    const imageAtDestination = updatedGallery[toSlotIndex] || "";
+
+    updatedGallery[toSlotIndex] = imageToMove;
+    updatedGallery[fromSlotIndex] = imageAtDestination;
+
+    product.gallery = updatedGallery;
+
+    // Actualizar imagen principal si se movió hacia/desde el slot 0
+    if (toSlotIndex === 0 || fromSlotIndex === 0) {
+      product.image =
+        updatedGallery[0] || "/uploads/products/default-product.png";
+    }
+
+    const updatedProduct = await product.save();
+
+    // Crear estructura de slots para respuesta completa
+    const slots = Array.from({ length: 6 }, (_, index) => {
+      const imageUrl = updatedProduct.gallery[index] || null;
+      return {
+        slot: index,
+        position: index + 1,
+        imageUrl,
+        isEmpty: !imageUrl,
+        isPrimary: index === 0,
+      };
+    });
+
+    logOperation("SLOT_IMAGEN_REORDENADO", {
+      productId: id,
+      fromSlot: fromSlotIndex,
+      toSlot: toSlotIndex,
+      movedImage: imageToMove,
+      replacedImage: imageAtDestination,
+      newPrimaryImage: updatedProduct.image,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        slots,
+        gallery: updatedProduct.gallery.filter(Boolean), // Filtrar URLs vacías
+        primaryImage: updatedProduct.image,
+      },
+    });
+  } catch (error) {
+    logOperation("ERROR_REORDENAR_SLOT_IMAGEN", {
+      productId: req.params.id,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Error al reordenar imagen",
       error: error instanceof Error ? error.message : error,
     });
   }

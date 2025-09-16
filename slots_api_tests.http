@@ -1,0 +1,343 @@
+### Variables
+@baseUrl = http://localhost:3015/api/v1
+# Reemplazar con ID real de un producto existente en tu base de datos
+@productId = 66f3c2e5a1b23d4e5f678901
+
+###############################################################################
+# 🎯 TESTING SISTEMA DE SLOTS INDIVIDUALES DE IMÁGENES - NUEVAS RUTAS
+###############################################################################
+
+### 1. 📋 Obtener información de slots de un producto
+# GET /api/v1/products/:id/slots (NUEVO ENDPOINT)
+GET {{baseUrl}}/products/{{productId}}/slots
+Content-Type: application/json
+
+### 2. 📊 Verificar que el producto existe primero
+# GET /api/v1/products/:id
+GET {{baseUrl}}/products/{{productId}}
+Content-Type: application/json
+
+###############################################################################
+# 🔄 ACTUALIZACIÓN DE SLOTS INDIVIDUALES
+###############################################################################
+
+### 3. 📸 Actualizar imagen en slot 0 (imagen principal)
+# PUT /api/v1/products/:id/slots/0 (NUEVO ENDPOINT)
+PUT {{baseUrl}}/products/{{productId}}/slots/0
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="new-primary-image.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 4. 📸 Actualizar imagen en slot 2 (tercera posición)
+# PUT /api/v1/products/:id/slots/2 (NUEVO ENDPOINT)
+PUT {{baseUrl}}/products/{{productId}}/slots/2
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-3-image.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 5. 📸 Actualizar imagen en slot 5 (última posición)
+# PUT /api/v1/products/:id/slots/5 (NUEVO ENDPOINT)  
+PUT {{baseUrl}}/products/{{productId}}/slots/5
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-6-image.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###############################################################################
+# ❌ ELIMINACIÓN DE SLOTS INDIVIDUALES
+###############################################################################
+
+### 6. 🗑️ Eliminar imagen del slot 5 (última imagen agregada)
+# DELETE /api/v1/products/:id/slots/5 (NUEVO ENDPOINT)
+DELETE {{baseUrl}}/products/{{productId}}/slots/5
+Content-Type: application/json
+
+### 7. 🗑️ Eliminar imagen del slot 2
+# DELETE /api/v1/products/:id/slots/2 (NUEVO ENDPOINT)
+DELETE {{baseUrl}}/products/{{productId}}/slots/2
+Content-Type: application/json
+
+###############################################################################
+# 🔄 REORDENAMIENTO DE IMÁGENES
+###############################################################################
+
+### 8. 🔀 Reordenar imagen: mover del slot 0 al slot 1
+# POST /api/v1/products/:id/slots/reorder (NUEVO ENDPOINT)
+POST {{baseUrl}}/products/{{productId}}/slots/reorder
+Content-Type: application/json
+
+{
+  "fromSlot": 0,
+  "toSlot": 1
+}
+
+### 9. 🔀 Reordenar imagen: mover del slot 1 de vuelta al slot 0
+# POST /api/v1/products/:id/slots/reorder (NUEVO ENDPOINT)
+POST {{baseUrl}}/products/{{productId}}/slots/reorder
+Content-Type: application/json
+
+{
+  "fromSlot": 1,
+  "toSlot": 0
+}
+
+### 10. 🔀 Reordenar imagen: intercambiar slots 1 y 3
+# POST /api/v1/products/:id/slots/reorder
+POST {{baseUrl}}/products/{{productId}}/slots/reorder
+Content-Type: application/json
+
+{
+  "fromSlot": 1,
+  "toSlot": 3
+}
+
+###############################################################################
+# ⚠️ CASOS DE ERROR Y VALIDACIÓN
+###############################################################################
+
+### 11. ❌ Error: Slot inválido (mayor a 5)
+# PUT /api/v1/products/:id/slots/6 - Debe retornar 400
+PUT {{baseUrl}}/products/{{productId}}/slots/6
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="invalid-slot.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 12. ❌ Error: Slot inválido (negativo)
+# PUT /api/v1/products/:id/slots/-1 - Debe retornar 400
+PUT {{baseUrl}}/products/{{productId}}/slots/-1
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="invalid-slot.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 13. ❌ Error: Producto no encontrado
+# GET /api/v1/products/000000000000000000000000/slots - Debe retornar 404
+GET {{baseUrl}}/products/000000000000000000000000/slots
+Content-Type: application/json
+
+### 14. ❌ Error: Eliminar slot inválido
+# DELETE /api/v1/products/:id/slots/7 - Debe retornar 400
+DELETE {{baseUrl}}/products/{{productId}}/slots/7
+Content-Type: application/json
+
+### 15. ❌ Error: Reordenamiento inválido (slots iguales)
+# POST /api/v1/products/:id/slots/reorder - Debe retornar 400
+POST {{baseUrl}}/products/{{productId}}/slots/reorder
+Content-Type: application/json
+
+{
+  "fromSlot": 2,
+  "toSlot": 2
+}
+
+### 16. ❌ Error: Reordenamiento inválido (slot fuera de rango)
+# POST /api/v1/products/:id/slots/reorder - Debe retornar 400
+POST {{baseUrl}}/products/{{productId}}/slots/reorder
+Content-Type: application/json
+
+{
+  "fromSlot": 0,
+  "toSlot": 6
+}
+
+### 17. ❌ Error: Actualizar sin imagen
+# PUT /api/v1/products/:id/slots/0 (sin archivo) - Debe retornar 400
+PUT {{baseUrl}}/products/{{productId}}/slots/0
+Content-Type: application/json
+
+{}
+
+###############################################################################
+# 🧪 CASOS DE PRUEBA AVANZADOS
+###############################################################################
+
+### 18. 🔄 Verificar slots después de todas las operaciones
+# GET /api/v1/products/:id/slots
+GET {{baseUrl}}/products/{{productId}}/slots
+Content-Type: application/json
+
+### 19. 🎯 Llenar todos los slots (test de 6 imágenes)
+# PUT /api/v1/products/:id/slots/0
+PUT {{baseUrl}}/products/{{productId}}/slots/0
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-0.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 20. 🎯 Slot 1
+PUT {{baseUrl}}/products/{{productId}}/slots/1
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-1.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 21. 🎯 Slot 2
+PUT {{baseUrl}}/products/{{productId}}/slots/2
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-2.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 22. 🎯 Slot 3
+PUT {{baseUrl}}/products/{{productId}}/slots/3
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-3.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 23. 🎯 Slot 4
+PUT {{baseUrl}}/products/{{productId}}/slots/4
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-4.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 24. 🎯 Slot 5
+PUT {{baseUrl}}/products/{{productId}}/slots/5
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="slot-5.jpg"
+Content-Type: image/jpeg
+
+< ./imagenPrueba.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 25. 📊 Verificar que se crearon todos los slots correctamente
+GET {{baseUrl}}/products/{{productId}}/slots
+Content-Type: application/json
+
+### 26. 🔀 Test de reordenamiento completo: mover última imagen al principio
+POST {{baseUrl}}/products/{{productId}}/slots/reorder
+Content-Type: application/json
+
+{
+  "fromSlot": 5,
+  "toSlot": 0
+}
+
+### 27. 📊 Verificar después del reordenamiento
+GET {{baseUrl}}/products/{{productId}}/slots
+Content-Type: application/json
+
+###############################################################################
+# 🧹 LIMPIEZA Y VALIDACIÓN FINAL
+###############################################################################
+
+### 28. 🗑️ Eliminar múltiples slots (excepto el último)
+DELETE {{baseUrl}}/products/{{productId}}/slots/4
+Content-Type: application/json
+
+### 29. 🗑️ Eliminar otro slot
+DELETE {{baseUrl}}/products/{{productId}}/slots/3
+Content-Type: application/json
+
+### 30. ❌ Intentar eliminar última imagen (debe fallar)
+# Primero verificar cuántas imágenes quedan
+GET {{baseUrl}}/products/{{productId}}/slots
+Content-Type: application/json
+
+### 31. 📊 Estado final del producto
+GET {{baseUrl}}/products/{{productId}}
+Content-Type: application/json
+
+###############################################################################
+# 📝 NOTAS DE TESTING
+###############################################################################
+
+# 🔍 RESPUESTAS ESPERADAS:
+
+# GET /slots:
+# {
+#   "success": true,
+#   "data": {
+#     "slots": [
+#       {
+#         "slot": 0,
+#         "position": 1,
+#         "imageUrl": "url_or_null",
+#         "isEmpty": boolean,
+#         "isPrimary": boolean
+#       },
+#       // ... 5 slots más
+#     ],
+#     "summary": {
+#       "total": 6,
+#       "occupied": number,
+#       "empty": number
+#     }
+#   }
+# }
+
+# PUT /slots/:slot:
+# {
+#   "success": true,
+#   "data": {
+#     "slot": { /* objeto slot actualizado */ },
+#     "gallery": ["url1", "url2", ...],
+#     "primaryImage": "url"
+#   }
+# }
+
+# DELETE /slots/:slot:
+# {
+#   "success": true,
+#   "data": {
+#     "deletedSlot": number,
+#     "gallery": ["url1", "url2", ...],
+#     "primaryImage": "url"
+#   }
+# }
+
+# POST /slots/reorder:
+# {
+#   "success": true,
+#   "data": {
+#     "slots": [ /* array completo de slots reordenados */ ],
+#     "gallery": ["url1", "url2", ...],
+#     "primaryImage": "url"
+#   }
+# }
