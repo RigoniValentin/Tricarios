@@ -7,4 +7,5 @@ package-lock.json
 dist
 .vscode
 uploads/products/*
+uploads/slides/*
 !uploads/products/.gitkeep

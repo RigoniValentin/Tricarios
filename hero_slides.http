@@ -1,0 +1,108 @@
+### Hero Slides API Tests
+### Base URL: http://localhost:3010
+
+### Variables
+@baseUrl = http://localhost:3010
+@token = Bearer YOUR_TOKEN_HERE
+
+# =================================
+# PUBLIC ENDPOINTS (No auth required)
+# =================================
+
+### Get Active Slides (Public)
+# @name getActiveSlides
+GET {{baseUrl}}/hero-slides/active
+Content-Type: application/json
+
+###
+
+# =================================
+# PROTECTED ENDPOINTS (Auth required)
+# =================================
+
+### Get All Slides (Admin)
+# @name getAllSlides
+GET {{baseUrl}}/hero-slides
+Content-Type: application/json
+Authorization: {{token}}
+
+###
+
+### Get Slide by ID
+# @name getSlideById
+GET {{baseUrl}}/hero-slides/SLIDE_ID_HERE
+Content-Type: application/json
+Authorization: {{token}}
+
+###
+
+### Create New Slide
+# @name createSlide
+POST {{baseUrl}}/hero-slides
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "title": "Nuevo Slide de Prueba",
+  "subtitle": "Subtítulo del slide",
+  "image": "https://images.unsplash.com/photo-1589244159943-460088ed5c92?w=1600&h=900&fit=crop",
+  "order": 3,
+  "isActive": true
+}
+
+###
+
+### Update Slide
+# @name updateSlide
+PUT {{baseUrl}}/hero-slides/SLIDE_ID_HERE
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "title": "Título Actualizado",
+  "subtitle": "Nuevo subtítulo",
+  "isActive": false
+}
+
+###
+
+### Update Multiple Slides (Bulk - for reordering)
+# @name updateMultipleSlides
+PUT {{baseUrl}}/hero-slides/bulk
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "slides": [
+    {
+      "_id": "SLIDE_ID_1",
+      "order": 0
+    },
+    {
+      "_id": "SLIDE_ID_2",
+      "order": 1
+    },
+    {
+      "_id": "SLIDE_ID_3",
+      "order": 2
+    }
+  ]
+}
+
+###
+
+### Delete Slide
+# @name deleteSlide
+DELETE {{baseUrl}}/hero-slides/SLIDE_ID_HERE
+Content-Type: application/json
+Authorization: {{token}}
+
+###
+
+### Initialize Default Slides (if none exist)
+# @name initializeDefaultSlides
+POST {{baseUrl}}/hero-slides/initialize
+Content-Type: application/json
+Authorization: {{token}}
+
+###

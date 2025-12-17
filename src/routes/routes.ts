@@ -49,6 +49,7 @@ import {
 import categoryRoutes from "./categoryRoutes";
 import productRoutes from "./productRoutes";
 import uploadRoutes from "./uploadRoutes";
+import heroSlideRoutes from "./heroSlideRoutes";
 import {
   applyCoupon,
   cancelPayment,
@@ -229,6 +230,9 @@ export default () => {
 
   // Rutas de upload de archivos
   router.use("/upload", uploadRoutes);
+
+  // Rutas de slides del hero
+  router.use("/hero-slides", heroSlideRoutes);
   // #endregion
 
   return router;
