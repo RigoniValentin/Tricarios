@@ -4,6 +4,7 @@ export interface IHeroSlide extends Document {
   title?: string;
   subtitle?: string;
   image: string;
+  mobileImage?: string;
   order: number;
   isActive: boolean;
   createdAt: Date;
@@ -26,6 +27,11 @@ const HeroSlideSchema: Schema = new Schema(
     image: {
       type: String,
       required: [true, "La imagen del slide es requerida"],
+      trim: true,
+    },
+    mobileImage: {
+      type: String,
+      required: false,
       trim: true,
     },
     order: {

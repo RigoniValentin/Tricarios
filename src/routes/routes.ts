@@ -50,6 +50,7 @@ import categoryRoutes from "./categoryRoutes";
 import productRoutes from "./productRoutes";
 import uploadRoutes from "./uploadRoutes";
 import heroSlideRoutes from "./heroSlideRoutes";
+import blogRoutes from "./blogRoutes";
 import {
   applyCoupon,
   cancelPayment,
@@ -58,6 +59,14 @@ import {
   createOrder,
   createPreference,
 } from "@controllers/paymentController";
+import {
+  getProfile,
+  updateProfile,
+  changePassword,
+  uploadProfileAvatar,
+} from "@controllers/profileController";
+import { uploadAvatar, handleUploadError } from "@middlewares/upload";
+import { compressExistingImages } from "@utils/imageCompressor";
 import { sendResetPasswordEmail } from "@services/emailService";
 import { getExamples, saveExamples } from "@controllers/exampleController";
 import { getChatHistory, deleteChatHistory } from "@controllers/chatController";
@@ -84,6 +93,19 @@ export default () => {
   );
   router.post("/auth/forgot-password", forgotPassword);
   router.post("/auth/reset-password", resetPassword);
+  //#endregion
+
+  //#region Profile Routes
+  router.get("/profile", verifyToken, getProfile);
+  router.put("/profile", verifyToken, updateProfile);
+  router.put("/profile/password", verifyToken, changePassword);
+  router.post(
+    "/profile/avatar",
+    verifyToken,
+    uploadAvatar,
+    handleUploadError,
+    uploadProfileAvatar
+  );
   //#endregion
 
   //#region User Routes
@@ -233,6 +255,35 @@ export default () => {
 
   // Rutas de slides del hero
   router.use("/hero-slides", heroSlideRoutes);
+
+  // Rutas del blog
+  router.use("/blogs", blogRoutes);
+  // #endregion
+
+  // #region Admin Utilities
+  router.post("/admin/compress-images", verifyToken, getPermissions, async (req, res) => {
+    try {
+      const path = await import("path");
+      const uploadsDir = path.join(process.cwd(), "uploads");
+      const result = await compressExistingImages(uploadsDir);
+      res.json({
+        success: true,
+        message: `Compresión completada: ${result.compressed}/${result.processed} archivos comprimidos`,
+        data: {
+          processed: result.processed,
+          compressed: result.compressed,
+          totalSavedBytes: result.totalSaved,
+          totalSavedMB: +(result.totalSaved / (1024 * 1024)).toFixed(2),
+        },
+      });
+    } catch (error) {
+      console.error("Error en compresión masiva:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error durante la compresión de imágenes",
+      });
+    }
+  });
   // #endregion
 
   return router;

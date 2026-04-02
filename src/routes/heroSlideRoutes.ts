@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -13,6 +13,7 @@ import {
   initializeDefaultSlides,
 } from "@controllers/heroSlideController";
 import { verifyToken, getPermissions } from "@middlewares/auth";
+import { compressUploadedFiles } from "@utils/imageCompressor";
 
 const router = Router();
 
@@ -54,13 +55,31 @@ const slideFileFilter = (
   }
 };
 
-const uploadSlideImage = multer({
+const multerUploadSlideImage = multer({
   storage: slideStorage,
   fileFilter: slideFileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB máximo
   },
-}).single("image");
+}).fields([
+  { name: "image", maxCount: 1 },
+  { name: "mobileImage", maxCount: 1 },
+]);
+
+// Wrapper with compression
+const uploadSlideImage = (req: Request, res: Response, next: NextFunction) => {
+  multerUploadSlideImage(req, res, async (err: any) => {
+    if (err) return next(err);
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const allFiles: Express.Multer.File[] = [];
+    if (files?.image) allFiles.push(...files.image);
+    if (files?.mobileImage) allFiles.push(...files.mobileImage);
+    if (allFiles.length > 0) {
+      await compressUploadedFiles(allFiles);
+    }
+    next();
+  });
+};
 
 // Rutas públicas (para el frontend)
 router.get("/active", getActiveSlides);

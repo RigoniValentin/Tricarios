@@ -41,6 +41,15 @@ const UserSchema: Schema = new Schema<User>(
     age: {
       type: Number,
     },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+      maxlength: 300,
+    },
     subscription: {
       type: {
         type: String,

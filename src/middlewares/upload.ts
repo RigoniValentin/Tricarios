@@ -1,7 +1,8 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { Request } from "express";
+import { Request, Response, NextFunction } from "express";
+import { compressUploadedFiles } from "@utils/imageCompressor";
 
 // Tipos permitidos de imágenes
 const ALLOWED_MIME_TYPES = [
@@ -89,7 +90,7 @@ const fileFilter = (
 };
 
 // Configuración principal de multer para múltiples archivos
-export const uploadProductImages = multer({
+const multerUploadProductImages = multer({
   storage,
   fileFilter,
   limits: {
@@ -99,8 +100,19 @@ export const uploadProductImages = multer({
   },
 }).array("images", MAX_FILES);
 
+// Wrapper that compresses images after multer upload
+export const uploadProductImages = (req: Request, res: Response, next: NextFunction) => {
+  multerUploadProductImages(req, res, async (err: any) => {
+    if (err) return next(err);
+    if (req.files && (req.files as Express.Multer.File[]).length > 0) {
+      await compressUploadedFiles(req.files as Express.Multer.File[]);
+    }
+    next();
+  });
+};
+
 // Configuración de multer para imagen individual (slots)
-export const uploadSingleProductImage = multer({
+const multerUploadSingleProductImage = multer({
   storage,
   fileFilter,
   limits: {
@@ -110,8 +122,116 @@ export const uploadSingleProductImage = multer({
   },
 }).single("image");
 
+// Wrapper that compresses single image after multer upload
+export const uploadSingleProductImage = (req: Request, res: Response, next: NextFunction) => {
+  multerUploadSingleProductImage(req, res, async (err: any) => {
+    if (err) return next(err);
+    if (req.file) {
+      await compressUploadedFiles([req.file]);
+    }
+    next();
+  });
+};
+
+// Configuración de almacenamiento para blog
+const blogStorage = multer.diskStorage({
+  destination: async (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void
+  ) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "blog");
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error as Error, "");
+    }
+  },
+  filename: (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void
+  ) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const fileName = `blog-${uniqueSuffix}${fileExtension}`;
+    cb(null, fileName);
+  },
+});
+
+// Configuración de multer para imagen de blog (portada)
+const multerUploadBlogImage = multer({
+  storage: blogStorage,
+  fileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 1,
+    fieldSize: 10 * 1024 * 1024,
+  },
+}).single("coverImage");
+
+// Wrapper that compresses blog image after upload
+export const uploadBlogImage = (req: Request, res: Response, next: NextFunction) => {
+  multerUploadBlogImage(req, res, async (err: any) => {
+    if (err) return next(err);
+    if (req.file) {
+      await compressUploadedFiles([req.file]);
+    }
+    next();
+  });
+};
+
 // Alias para compatibilidad con el controller
 export const upload = uploadProductImages;
+
+// Configuración de almacenamiento para avatars
+const avatarStorage = multer.diskStorage({
+  destination: async (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void
+  ) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "avatars");
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error as Error, "");
+    }
+  },
+  filename: (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void
+  ) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const fileName = `avatar-${uniqueSuffix}${fileExtension}`;
+    cb(null, fileName);
+  },
+});
+
+// Configuración de multer para avatar de usuario
+const multerUploadAvatar = multer({
+  storage: avatarStorage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB para avatars
+    files: 1,
+  },
+}).single("avatar");
+
+// Wrapper that compresses avatar after upload
+export const uploadAvatar = (req: Request, res: Response, next: NextFunction) => {
+  multerUploadAvatar(req, res, async (err: any) => {
+    if (err) return next(err);
+    if (req.file) {
+      await compressUploadedFiles([req.file]);
+    }
+    next();
+  });
+};
 
 // Función auxiliar para eliminar archivos de forma segura
 export const deleteImageFile = async (imagePath: string): Promise<boolean> => {

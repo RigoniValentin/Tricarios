@@ -57,14 +57,12 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         roles: user.roles,
         age: user.age,
+        avatar: user.avatar || "",
       },
       jwtSecret,
       { expiresIn: "3h" }
     );
 
-    //const decodedPayload = jwt.decode(token);
-    //console.log("Payload decodificado:", decodedPayload);
-    //console.log("MercadoPago Access Token:", process.env.MP_ACCESS_TOKEN);
     res.json(token);
   } catch (error) {
     console.log("error :>> ", error);
@@ -100,6 +98,7 @@ export const refreshToken = async (
         email: updatedUser.email,
         roles: updatedUser.roles,
         age: updatedUser.age,
+        avatar: updatedUser.avatar || "",
       },
       jwtSecret,
       { expiresIn: "3h" }

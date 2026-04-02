@@ -107,12 +107,18 @@ export const createSlide = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { title, subtitle, image, order, isActive } = req.body;
+    const { title, subtitle, image, mobileImage, order, isActive } = req.body;
 
     // Obtener imagen del archivo subido o de la URL proporcionada
     let slideImage = image;
-    if (req.file) {
-      slideImage = `/uploads/slides/${req.file.filename}`;
+    let slideMobileImage = mobileImage;
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    if (files?.image?.[0]) {
+      slideImage = `/uploads/slides/${files.image[0].filename}`;
+    }
+    if (files?.mobileImage?.[0]) {
+      slideMobileImage = `/uploads/slides/${files.mobileImage[0].filename}`;
     }
 
     // Validar que al menos hay imagen
@@ -135,6 +141,7 @@ export const createSlide = async (
       title: title || undefined,
       subtitle: subtitle || undefined,
       image: slideImage,
+      mobileImage: slideMobileImage || undefined,
       order: slideOrder,
       isActive: isActive !== undefined ? isActive : true,
     });
@@ -163,7 +170,7 @@ export const updateSlide = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { title, subtitle, image, order, isActive } = req.body;
+    const { title, subtitle, image, mobileImage, order, isActive } = req.body;
 
     const slide = await HeroSlide.findById(id);
 
@@ -175,13 +182,15 @@ export const updateSlide = async (
       return;
     }
 
-    // Si hay una nueva imagen subida
-    if (req.file) {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    // Si hay una nueva imagen de desktop subida
+    if (files?.image?.[0]) {
       // Eliminar imagen anterior si es local
       if (slide.image && slide.image.startsWith("/uploads/")) {
         await deleteImageFile(slide.image);
       }
-      slide.image = `/uploads/slides/${req.file.filename}`;
+      slide.image = `/uploads/slides/${files.image[0].filename}`;
     } else if (image !== undefined) {
       // Si se proporciona una URL de imagen
       if (
@@ -192,6 +201,25 @@ export const updateSlide = async (
         await deleteImageFile(slide.image);
       }
       slide.image = image;
+    }
+
+    // Si hay una nueva imagen móvil subida
+    if (files?.mobileImage?.[0]) {
+      // Eliminar imagen móvil anterior si es local
+      if (slide.mobileImage && slide.mobileImage.startsWith("/uploads/")) {
+        await deleteImageFile(slide.mobileImage);
+      }
+      slide.mobileImage = `/uploads/slides/${files.mobileImage[0].filename}`;
+    } else if (mobileImage !== undefined) {
+      // Si se proporciona una URL de imagen móvil (o vacío para eliminar)
+      if (
+        slide.mobileImage &&
+        slide.mobileImage.startsWith("/uploads/") &&
+        mobileImage !== slide.mobileImage
+      ) {
+        await deleteImageFile(slide.mobileImage);
+      }
+      slide.mobileImage = mobileImage || undefined;
     }
 
     // Actualizar solo los campos proporcionados
@@ -291,6 +319,11 @@ export const deleteSlide = async (
     // Eliminar imagen si es local
     if (slide.image && slide.image.startsWith("/uploads/")) {
       await deleteImageFile(slide.image);
+    }
+
+    // Eliminar imagen móvil si es local
+    if (slide.mobileImage && slide.mobileImage.startsWith("/uploads/")) {
+      await deleteImageFile(slide.mobileImage);
     }
 
     await HeroSlide.findByIdAndDelete(id);

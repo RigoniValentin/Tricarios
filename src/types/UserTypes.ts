@@ -9,6 +9,8 @@ export interface User extends Document {
   password: string;
   age: number;
   whatsapp: string;
+  avatar?: string;
+  bio?: string;
   roles?: Roles[];
   permissions?: string[];
   // Nuevos campos para capacitaciones:
