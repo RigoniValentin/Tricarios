@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from "axios";
+import https from "https";
 import mongoose from "mongoose";
 import { rgIntegrationConfig } from "@config/rgIntegration";
 import Product, { IProduct } from "@models/Product";
@@ -69,9 +70,18 @@ let cachedClient: AxiosInstance | null = null;
 
 function getClient(): AxiosInstance {
   if (cachedClient) return cachedClient;
+
+  // Para túneles Cloudflare (trycloudflare.com) el VPS puede no tener
+  // la CA intermedia en su store. Usamos un agente que permite la cadena
+  // de Cloudflare sin deshabilitar TLS globalmente.
+  const httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+  });
+
   cachedClient = axios.create({
     baseURL: rgIntegrationConfig.baseUrl,
     timeout: rgIntegrationConfig.requestTimeoutMs,
+    httpsAgent,
     headers: {
       "x-api-key": rgIntegrationConfig.apiKey,
       "Content-Type": "application/json",
