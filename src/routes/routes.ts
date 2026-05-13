@@ -51,6 +51,7 @@ import productRoutes from "./productRoutes";
 import uploadRoutes from "./uploadRoutes";
 import heroSlideRoutes from "./heroSlideRoutes";
 import blogRoutes from "./blogRoutes";
+import externalRoutes from "./externalRoutes";
 import {
   applyCoupon,
   cancelPayment,
@@ -258,6 +259,9 @@ export default () => {
 
   // Rutas del blog
   router.use("/blogs", blogRoutes);
+
+  // Rutas de integración con sistemas externos (Río Gestión, etc.)
+  router.use("/external", externalRoutes);
   // #endregion
 
   // #region Admin Utilities

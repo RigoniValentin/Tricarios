@@ -10,7 +10,17 @@ const app: Application = express();
 const projectRoot = process.cwd();
 
 app.use(cookieParser());
-app.use(express.json({ limit: "50mb" }));
+// Capturamos el raw body en req.rawBody para poder verificar HMAC en webhooks
+// entrantes (p.ej. integración con Río Gestión). Se preserva el comportamiento
+// estándar de express.json para el resto de la app.
+app.use(
+  express.json({
+    limit: "50mb",
+    verify: (req: any, _res, buf: Buffer) => {
+      if (buf && buf.length) req.rawBody = Buffer.from(buf);
+    },
+  })
+);
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(morgan("dev"));
 app.use(cors());
