@@ -115,6 +115,8 @@ if (items.length > 0) {
 
 ## Diagnóstico
 
+Runbook operativo completo: `docs/OPERACION_INTEGRACION_RG_CLOUDFLARE.md`.
+
 ```bash
 curl -H "x-api-key: $RG_API_KEY" https://tricariosgrowshop.com/api/v1/external/rg/status
 curl -H "x-api-key: $RG_API_KEY" https://tricariosgrowshop.com/api/v1/external/rg/logs?limit=20

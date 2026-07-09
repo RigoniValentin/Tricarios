@@ -15,7 +15,7 @@ export const findRoles = async (req: Request, res: Response): Promise<void> => {
     }
     res.json(roles);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error obteniendo roles:", error);
     res.status(500).json(error);
   }
 };
@@ -32,7 +32,7 @@ export const findRolesById = async (
     }
     res.json(roles);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error obteniendo rol por ID:", error);
     res.status(500).json(error);
   }
 };
@@ -46,7 +46,7 @@ export const createRoles = async (
     const result = await rolesService.createRoles(newRole);
     res.status(201).json(result);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error creando rol:", error);
     res.status(400).json(error);
   }
 };
@@ -63,7 +63,7 @@ export const updateRoles = async (
     }
     res.json(roles);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error actualizando rol:", error);
     res.status(500).json(error);
   }
 };
@@ -80,7 +80,7 @@ export const deleteRoles = async (
     }
     res.json(roles);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error eliminando rol:", error);
     res.status(500).json(error);
   }
 };

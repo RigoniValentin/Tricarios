@@ -21,12 +21,7 @@ import {
 const MAX_FILES = uploadMiddleware.MAX_FILES;
 
 // Función auxiliar para logging detallado
-const logOperation = (operation: string, details: any) => {
-  console.log(
-    `🔄 [${new Date().toISOString()}] ${operation}:`,
-    JSON.stringify(details, null, 2)
-  );
-};
+const logOperation = (_operation: string, _details: any) => undefined;
 
 // Función auxiliar para procesar imágenes
 const processImages = (
@@ -624,9 +619,6 @@ export const createProduct = async (
       return;
     }
 
-    // LOG: Mostrar el contenido de req.body.gallery antes de procesar imágenes
-    console.log("[CREATE_PRODUCT] req.body.gallery:", req.body.gallery);
-
     // Procesar imágenes: si no hay archivos subidos, usar gallery del body
     let imageUrls: string[] = [];
     if (files && files.length > 0) {
@@ -634,8 +626,6 @@ export const createProduct = async (
     } else if (Array.isArray(req.body.gallery) && req.body.gallery.length > 0) {
       imageUrls = req.body.gallery.slice(0, MAX_FILES);
     }
-    // LOG: Mostrar el array final de imágenes
-    console.log("[CREATE_PRODUCT] imageUrls:", imageUrls);
     // Si no hay imágenes, imageUrls será vacío y el modelo pondrá la default
 
     logOperation("IMAGENES_PROCESADAS", { urls: imageUrls });
@@ -649,10 +639,6 @@ export const createProduct = async (
         parsedTags = JSON.parse(tags);
       }
     } catch (error) {
-      console.log(
-        "Error parsing tags, using as array with single element:",
-        error
-      );
       parsedTags = [tags];
     }
 
@@ -663,10 +649,6 @@ export const createProduct = async (
         parsedSpecs = sanitizeSpecifications(specifications);
       }
     } catch (error) {
-      console.log(
-        "Error processing specifications, using as empty object:",
-        error
-      );
       parsedSpecs = {};
     }
 
@@ -691,12 +673,6 @@ export const createProduct = async (
       specifications: parsedSpecs || {},
       // image e inStock serán establecidos automáticamente por los middlewares del modelo
     };
-
-    // LOG: Mostrar datos del producto antes de crear
-    console.log(
-      "[CREATE_PRODUCT] productData antes de crear:",
-      JSON.stringify(productData, null, 2)
-    );
 
     const product = new Product(productData);
     const savedProduct = await product.save();
@@ -725,17 +701,6 @@ export const createProduct = async (
       errorName: error instanceof Error ? error.name : "Unknown",
       stack: error instanceof Error ? error.stack : undefined,
     });
-
-    // Log adicional para debugging
-    console.log("❌ [CREATE_PRODUCT] Error completo:", error);
-    console.log(
-      "❌ [CREATE_PRODUCT] Error name:",
-      error instanceof Error ? error.name : "Unknown"
-    );
-    console.log(
-      "❌ [CREATE_PRODUCT] Error message:",
-      error instanceof Error ? error.message : error
-    );
 
     if (error instanceof Error && error.name === "ValidationError") {
       res.status(400).json({
@@ -835,9 +800,6 @@ export const updateProduct = async (
       return false;
     };
 
-    // LOG: Mostrar el contenido de req.body.gallery antes de procesar imágenes
-    console.log("[UPDATE_PRODUCT] req.body.gallery:", req.body.gallery);
-
     // Manejar imágenes - con los slots individuales SIEMPRE reemplazamos
     if (files && files.length > 0) {
       if (files.length > MAX_FILES) {
@@ -861,8 +823,6 @@ export const updateProduct = async (
         urls: product.gallery,
       });
     } else if (Array.isArray(req.body.gallery) && req.body.gallery.length > 0) {
-      // LOG: Mostrar el array final de imágenes
-      console.log("[UPDATE_PRODUCT] imageUrls:", req.body.gallery);
       // Si no hay archivos pero sí gallery en el body, reemplazar imágenes
       await cleanupOldImages(product.gallery);
       product.gallery = req.body.gallery.slice(0, MAX_FILES);

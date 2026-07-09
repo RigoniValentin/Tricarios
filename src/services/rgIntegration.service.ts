@@ -64,6 +64,13 @@ export interface UpsertReport {
   errors: number;
 }
 
+export interface RGSingleProductPullResult {
+  ok: boolean;
+  message: string;
+  item?: RGStockSyncItem;
+  report?: UpsertReport;
+}
+
 // ── HTTP client ─────────────────────────────────────────────────────────────
 
 let cachedClient: AxiosInstance | null = null;
@@ -159,6 +166,100 @@ export async function pullCatalog(): Promise<{
       eventType: "catalog.pull",
       status: "ERROR",
       targetUrl: "/api/external/sync-stock",
+      errorMessage: msg,
+      durationMs: Date.now() - started,
+    });
+    return { ok: false, message: msg };
+  }
+}
+
+/**
+ * Trae el snapshot de catálogo desde RG y aplica la sincronización sobre un
+ * único producto vinculado por `managementId`.
+ */
+export async function pullCatalogProductByManagementId(
+  managementId: number
+): Promise<RGSingleProductPullResult> {
+  if (!rgIntegrationConfig.enabled) {
+    return { ok: false, message: "Integración deshabilitada" };
+  }
+
+  if (!Number.isInteger(managementId) || managementId <= 0) {
+    return { ok: false, message: "managementId inválido" };
+  }
+
+  const started = Date.now();
+  try {
+    const res = await getClient().get<RGStockSyncResponse>(
+      "/api/external/sync-stock"
+    );
+    const duration = Date.now() - started;
+
+    if (res.status < 200 || res.status >= 300) {
+      await logIntegrationEvent({
+        direction: "OUTBOUND",
+        eventType: "catalog.pull.single",
+        status: "ERROR",
+        httpStatus: res.status,
+        targetUrl: "/api/external/sync-stock",
+        errorMessage: `HTTP ${res.status}`,
+        payload: { managementId },
+        responseBody: res.data,
+        durationMs: duration,
+      });
+      return { ok: false, message: `HTTP ${res.status}` };
+    }
+
+    const items = Array.isArray(res.data?.items) ? res.data.items : [];
+    const item = items.find((candidate) => candidate?.PRODUCTO_ID === managementId);
+
+    if (!item) {
+      await logIntegrationEvent({
+        direction: "OUTBOUND",
+        eventType: "catalog.pull.single",
+        status: "PARTIAL",
+        httpStatus: res.status,
+        targetUrl: "/api/external/sync-stock",
+        payload: { managementId, received: items.length },
+        errorMessage: `No se encontró el managementId ${managementId} en RG WEB`,
+        durationMs: duration,
+      });
+      return {
+        ok: false,
+        message: `No se encontró el managementId ${managementId} en Río Gestión`,
+      };
+    }
+
+    const report = await upsertProductsFromRG([item]);
+
+    await logIntegrationEvent({
+      direction: "OUTBOUND",
+      eventType: "catalog.pull.single",
+      status: report.errors > 0 ? "PARTIAL" : "SUCCESS",
+      httpStatus: res.status,
+      targetUrl: "/api/external/sync-stock",
+      payload: { managementId, received: items.length, matched: 1 },
+      responseBody: report,
+      durationMs: duration,
+    });
+
+    return {
+      ok: report.errors === 0,
+      message:
+        report.errors === 0
+          ? `Producto RG ${managementId} sincronizado`
+          : `Producto RG ${managementId} sincronizado con errores`,
+      item,
+      report,
+    };
+  } catch (err) {
+    const msg = describeAxiosError(err);
+    await logIntegrationEvent({
+      direction: "OUTBOUND",
+      eventType: "catalog.pull.single",
+      status: "ERROR",
+      targetUrl: "/api/external/sync-stock",
+      payload: { managementId },
       errorMessage: msg,
       durationMs: Date.now() - started,
     });
@@ -269,6 +370,9 @@ export async function upsertProductsFromRG(
   return report;
 }
 
+/**
+ * Empuja cambios de un producto vinculado hacia RG WEB.
+ */
 // ── PUSH: orden hacia RG ────────────────────────────────────────────────────
 
 /**

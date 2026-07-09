@@ -13,7 +13,6 @@ import {
   initializeDefaultSlides,
 } from "@controllers/heroSlideController";
 import { verifyToken, getPermissions } from "@middlewares/auth";
-import { compressUploadedFiles } from "@utils/imageCompressor";
 
 const router = Router();
 
@@ -66,17 +65,9 @@ const multerUploadSlideImage = multer({
   { name: "mobileImage", maxCount: 1 },
 ]);
 
-// Wrapper with compression
 const uploadSlideImage = (req: Request, res: Response, next: NextFunction) => {
   multerUploadSlideImage(req, res, async (err: any) => {
     if (err) return next(err);
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-    const allFiles: Express.Multer.File[] = [];
-    if (files?.image) allFiles.push(...files.image);
-    if (files?.mobileImage) allFiles.push(...files.mobileImage);
-    if (allFiles.length > 0) {
-      await compressUploadedFiles(allFiles);
-    }
     next();
   });
 };

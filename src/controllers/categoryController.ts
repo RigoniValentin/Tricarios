@@ -3,12 +3,14 @@ import Category, { ICategory } from "@models/Category";
 import Product from "@models/Product";
 
 // Función auxiliar para logging
-const logOperation = (operation: string, details: any) => {
-  console.log(
-    `🏷️  [${new Date().toISOString()}] ${operation}:`,
-    JSON.stringify(details, null, 2)
-  );
-};
+const logOperation = (_operation: string, _details: any) => undefined;
+
+// Escapa caracteres especiales de regex para que un nombre de categoría
+// pueda interpolarse de forma segura dentro de un `RegExp`.
+// Antes, nombres como "Café (Premium)" o "A&B" lanzaban SyntaxError o
+// devolvían falsos positivos al construir `^${name}$`.
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // GET /api/v1/categories - Obtener todas las categorías
 export const getCategories = async (
@@ -230,15 +232,26 @@ export const createCategory = async (
       return;
     }
 
-    // Verificar que el nombre sea único
+    // Verificar que el nombre sea único DENTRO del mismo padre.
+    // El mismo nombre sí puede existir bajo un padre distinto (p.ej. "Plastico"
+    // como subcategoría de dos categorías padre diferentes), pero no como
+    // hermano de otro con igual nombre ni como duplicado entre raíces.
+    const trimmedName = name.trim();
+    const parentScope = parentCategoryId
+      ? { parentCategoryId }
+      : { parentCategoryId: null };
+
     const existingCategory = await Category.findOne({
-      name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
+      name: { $regex: new RegExp(`^${escapeRegex(trimmedName)}$`, "i") },
+      ...parentScope,
     });
 
     if (existingCategory) {
       res.status(400).json({
         success: false,
-        message: "Ya existe una categoría con ese nombre",
+        message: parentCategoryId
+          ? "Ya existe una subcategoría con ese nombre dentro de la categoría padre seleccionada"
+          : "Ya existe una categoría raíz con ese nombre",
       });
       return;
     }
@@ -302,6 +315,14 @@ export const createCategory = async (
       body: req.body,
       error: error instanceof Error ? error.message : error,
     });
+
+    if (error instanceof Error && (error as any).code === 11000) {
+      res.status(400).json({
+        success: false,
+        message: "Ya existe una categoría con ese nombre en el mismo nivel",
+      });
+      return;
+    }
 
     res.status(400).json({
       success: false,
@@ -397,16 +418,29 @@ export const updateCategory = async (
     }
 
     // Validar nombre único si se está cambiando
+    // La unicidad se evalúa contra el padre efectivo: el nuevo si se está
+    // re-parentando, o el actual en cualquier otro caso.
     if (name && name.trim() !== category.name) {
+      const effectiveParentId =
+        parentCategoryId !== undefined ? parentCategoryId || null : category.parentCategoryId;
+
+      const parentScope =
+        effectiveParentId === null || effectiveParentId === undefined
+          ? { parentCategoryId: null }
+          : { parentCategoryId: effectiveParentId };
+
       const existingCategory = await Category.findOne({
-        name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
+        name: { $regex: new RegExp(`^${escapeRegex(name.trim())}$`, "i") },
         _id: { $ne: id },
+        ...parentScope,
       });
 
       if (existingCategory) {
         res.status(400).json({
           success: false,
-          message: "Ya existe una categoría con ese nombre",
+          message: effectiveParentId
+            ? "Ya existe una subcategoría con ese nombre dentro de la categoría padre seleccionada"
+            : "Ya existe una categoría raíz con ese nombre",
         });
         return;
       }

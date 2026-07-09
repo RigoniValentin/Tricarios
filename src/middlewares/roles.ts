@@ -13,7 +13,6 @@ export const checkRoles = async (
 ): Promise<void> => {
   const roles: string[] = req.body && req.body?.roles ? req.body.roles : [];
   const role = Array.isArray(roles) && roles.length != 0 ? roles : ["user"];
-  console.log("req.body", role);
 
   try {
     const findRoles = await rolesService.findRoles({ name: { $in: role } });
@@ -25,11 +24,9 @@ export const checkRoles = async (
 
     req.body.roles = findRoles.map((x) => x._id);
 
-    console.log("req.body.roles :>>", req.body.roles);
-
     next();
   } catch (error) {
-    console.log("error :>>", error);
+    console.error("Error resolviendo roles:", error);
     res.status(500).json(error);
     return;
   }

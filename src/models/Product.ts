@@ -152,7 +152,7 @@ ProductSchema.index({ inStock: 1 });
 ProductSchema.index({ featured: 1 });
 ProductSchema.index({ rating: 1 });
 ProductSchema.index({ tags: 1 });
-ProductSchema.index({ managementId: 1 }, { sparse: true }); // Índice único para managementId
+// managementId ya tiene índice único (sparse) por su definición de campo.
 
 // Virtual para calcular descuento automáticamente
 ProductSchema.virtual("discountCalculated").get(function (this: IProduct) {
@@ -171,21 +171,11 @@ ProductSchema.virtual("id").get(function (this: IProduct) {
 
 // Middleware para establecer imagen principal automáticamente
 ProductSchema.pre("save", function (this: IProduct, next) {
-  console.log(
-    `🔧 Pre-save middleware ejecutándose para producto: ${this.name}`
-  );
-  console.log(`📷 Imágenes recibidas:`, this.gallery);
-
   try {
     if (this.gallery && this.gallery.length > 0) {
       this.image = this.gallery[0]; // La primera imagen es siempre la principal
-      console.log(`✅ Imagen principal establecida: ${this.image}`);
     } else {
-      console.log(`⚠️  No se encontraron imágenes en el array`);
       // Si no hay imágenes pero ya existe una imagen principal, mantenerla
-      if (!this.image) {
-        console.log(`❌ No hay imagen principal y no hay imágenes en el array`);
-      }
     }
     next();
   } catch (error) {
@@ -197,18 +187,7 @@ ProductSchema.pre("save", function (this: IProduct, next) {
 // Middleware para validar imágenes antes de guardar
 ProductSchema.pre("save", function (this: IProduct, next) {
   try {
-    console.log(`🔍 Validando imágenes para producto: ${this.name}`);
-    console.log(`📷 Gallery recibido en middleware:`, this.gallery);
-    console.log(
-      `📷 Tipo de gallery:`,
-      typeof this.gallery,
-      Array.isArray(this.gallery)
-    );
-
     if (this.gallery && this.gallery.length > 6) {
-      console.log(
-        `❌ Demasiadas imágenes: ${this.gallery.length}, máximo permitido: 6`
-      );
       return next(
         new Error("No se pueden tener más de 6 imágenes por producto")
       );
@@ -216,19 +195,12 @@ ProductSchema.pre("save", function (this: IProduct, next) {
 
     // Si no hay imágenes, usar imagen por defecto
     if (!this.gallery || this.gallery.length === 0) {
-      console.log(`📷 Usando imagen por defecto para producto sin imágenes`);
       this.gallery = ["/uploads/products/default-product.png"];
       this.image = "/uploads/products/default-product.png";
     } else {
       // Si hay imágenes, la primera es la principal
-      console.log(`📷 Usando galería existente:`, this.gallery);
       this.image = this.gallery[0];
     }
-
-    console.log(
-      `✅ Validación de imágenes exitosa: ${this.gallery?.length || 0} imágenes`
-    );
-    console.log(`✅ Imagen principal final:`, this.image);
     next();
   } catch (error) {
     console.error(`❌ Error en validación de imágenes:`, error);
@@ -263,9 +235,6 @@ ProductSchema.post("save", async function (doc: IProduct) {
       categoryId: doc.categoryId,
     });
     await Category.findByIdAndUpdate(doc.categoryId, { productCount: count });
-    console.log(
-      `📊 Contador de productos actualizado para categoría ${doc.categoryId}: ${count}`
-    );
   } catch (error) {
     console.error("Error actualizando contador de productos:", error);
   }
@@ -279,9 +248,6 @@ ProductSchema.post("findOneAndDelete", async function (doc: IProduct | null) {
         categoryId: doc.categoryId,
       });
       await Category.findByIdAndUpdate(doc.categoryId, { productCount: count });
-      console.log(
-        `📊 Contador de productos actualizado después de eliminación para categoría ${doc.categoryId}: ${count}`
-      );
     } catch (error) {
       console.error(
         "Error actualizando contador después de eliminación:",

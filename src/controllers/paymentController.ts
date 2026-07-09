@@ -85,7 +85,6 @@ export const createOrder = async (
       Authorization: `Bearer ${access_token}`,
     },
   });
-  console.log(response.data);
 
   res.json(response.data);
 };
@@ -107,8 +106,6 @@ export const captureOrder = async (
         },
       }
     );
-
-    console.log(response.data);
 
     // Verificar que la respuesta contiene la información esperada
     if (
@@ -213,12 +210,9 @@ export const createPreference = async (req: Request, res: Response) => {
 
     const preference = new Preference(mercadoPagoClient);
     const result = await preference.create({ body });
-    console.log("Preference created:", result.id);
-    // Always return the access token for production to ensure proper authorization
-    console.log("Preference created:", result.id);
     res.json({ id: result.id });
   } catch (error) {
-    console.log("Error al procesar el pago (MP) :>>", error);
+    console.error("Error al procesar el pago (MP):", error);
     res.status(500).json({ message: "Error al procesar el pago", error });
   }
 };
@@ -229,24 +223,10 @@ export const capturePreference = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  console.log(
-    "capturePreference: Function called with query params",
-    req.query
-  );
-
   // Se asume que MercadoPago redirige con al menos: state (userId), payment_id y status
   const { state, payment_id, status } = req.query;
-  console.log(
-    "capturePreference: Extracted state =",
-    state,
-    "payment_id =",
-    payment_id,
-    "status =",
-    status
-  );
 
   if (status !== "approved") {
-    console.log("capturePreference: Payment status not approved");
     res.status(400).json({ message: "Payment not approved" });
     return;
   }
@@ -254,17 +234,13 @@ export const capturePreference = async (
   try {
     const userId = state as string;
     const user = await userService.findUserById(userId);
-    console.log("capturePreference: User lookup for", userId, "result:", user);
     if (!user) {
-      console.log("capturePreference: User not found");
       res.status(404).json({ message: "User not found" });
       return;
     }
 
     const paidUserRole = await rolesService.findRoles({ name: "user" });
-    console.log("capturePreference: Retrieved role 'user':", paidUserRole);
     if (!paidUserRole || paidUserRole.length === 0) {
-      console.log("capturePreference: Role 'user' not found");
       res.status(500).json({ message: "Role 'user' not found" });
       return;
     }
@@ -272,12 +248,6 @@ export const capturePreference = async (
     const paymentDate = new Date();
     const expirationDate = new Date(paymentDate);
     expirationDate.setDate(expirationDate.getDate() + 30);
-    console.log(
-      "capturePreference: Calculated paymentDate =",
-      paymentDate,
-      "and expirationDate =",
-      expirationDate
-    );
 
     user.roles = [paidUserRole[0]];
 
@@ -287,10 +257,9 @@ export const capturePreference = async (
       process.env.NODE_ENV === "production"
         ? `https://pilatestransmissionsarah.com/pagoAprobado?state=${userId}`
         : `http://localhost:3010/pagoAprobado?state=${userId}`;
-    console.log("capturePreference: Redirecting to", successUrl);
     res.redirect(successUrl);
   } catch (error) {
-    console.log("capturePreference: Error capturing MP payment:", error);
+    console.error("Error capturando pago de Mercado Pago:", error);
     res.status(500).json({ message: "Error processing MP payment", error });
   }
 };

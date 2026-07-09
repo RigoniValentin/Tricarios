@@ -5,12 +5,7 @@ import { Request, Response } from "express";
 const router = Router();
 
 // Función auxiliar para logging (copiada del controlador)
-const logOperation = (operation: string, details: any) => {
-  console.log(
-    `🔄 [${new Date().toISOString()}] ${operation}:`,
-    JSON.stringify(details, null, 2)
-  );
-};
+const logOperation = (_operation: string, _details: any) => undefined;
 
 // POST /upload/products - Subir imágenes de productos y devolver URLs
 router.post(

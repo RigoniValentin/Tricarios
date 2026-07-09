@@ -50,24 +50,19 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// ── Agregar Socket.IO ──
+// ── Servidor HTTP + Socket.IO ──
 import { createServer } from "http";
-import { Server as SocketIOServer } from "socket.io";
+import { initSocketServer } from "../realtime/socketServer";
 
 // Crear servidor HTTP usando la app de Express
 const httpServer = createServer(app);
 
-// Inicializar Socket.IO
-const io = new SocketIOServer(httpServer, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-});
+// Inicializa Socket.IO (namespace /realtime + bridges del domainBus).
+const io = initSocketServer(httpServer);
 
-// Ejemplo de configuración de eventos
+// ── Chat legacy: queda en el namespace default ("/") ──
 io.on("connection", (socket) => {
-  console.log("Socket conectado:", socket.id);
-
   socket.on("chat message", async (msg: string) => {
-    console.log("Mensaje de chat:", msg);
     io.emit("chat message", msg);
     // Guardar el mensaje en la base de datos
     try {
@@ -81,21 +76,14 @@ io.on("connection", (socket) => {
 
   // Listener para el evento "chat toggled"
   socket.on("chat toggled", (payload: any) => {
-    console.log("Chat toggled:", payload);
     // Retransmitir el evento a todos los demás clientes conectados
     socket.broadcast.emit("chat toggled", payload);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket desconectado:", socket.id);
   });
 });
 
 // Lógica de cierre gracioso en server.ts
 const shutdown = () => {
-  console.log("Cerrando servidor...");
   httpServer.close(() => {
-    console.log("Servidor HTTP cerrado.");
     process.exit(0);
   });
 };

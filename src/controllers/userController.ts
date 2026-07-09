@@ -7,8 +7,6 @@ const userRepository: IUserRepository = new UserRepository();
 const userService: IUserService = new UserService(userRepository);
 
 export const findUsers = async (req: Request, res: Response): Promise<void> => {
-  console.log("req :>> ", req.currentUser);
-
   try {
     const users = await userService.findUsers();
     if (users.length === 0) {
@@ -17,7 +15,7 @@ export const findUsers = async (req: Request, res: Response): Promise<void> => {
     }
     res.json(users);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error obteniendo usuarios:", error);
     res.status(500).json(error);
   }
 };
@@ -34,7 +32,7 @@ export const findUserById = async (
     }
     res.json(users);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error obteniendo usuario por ID:", error);
     res.status(500).json(error);
   }
 };
@@ -48,7 +46,7 @@ export const createUser = async (
     const result = await userService.createUser(newUser);
     res.status(201).json(result);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error creando usuario:", error);
     res.status(400).json(error);
   }
 };
@@ -65,7 +63,7 @@ export const updateUser = async (
     }
     res.json(users);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error actualizando usuario:", error);
     res.status(500).json(error);
   }
 };
@@ -82,7 +80,7 @@ export const deleteUser = async (
     }
     res.json(users);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error eliminando usuario:", error);
     res.status(500).json(error);
   }
 };

@@ -29,7 +29,6 @@ const storage = multer.diskStorage({
     const uploadDir = path.join(process.cwd(), "uploads", "products");
     try {
       await fs.mkdir(uploadDir, { recursive: true });
-      console.log(`📁 Directorio de uploads verificado: ${uploadDir}`);
       cb(null, uploadDir);
     } catch (error) {
       console.error("❌ Error creando directorio de uploads:", error);
@@ -46,7 +45,6 @@ const storage = multer.diskStorage({
     const fileExtension = path.extname(file.originalname).toLowerCase();
     const fileName = `product-${uniqueSuffix}${fileExtension}`;
 
-    console.log(`📸 Procesando archivo: ${file.originalname} -> ${fileName}`);
     cb(null, fileName);
   },
 });
@@ -57,10 +55,6 @@ const fileFilter = (
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ) => {
-  console.log(
-    `🔍 Validando archivo: ${file.originalname}, tipo: ${file.mimetype}, tamaño: ${file.size} bytes`
-  );
-
   // Validar tipo de archivo
   if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     const error = new Error(
@@ -84,8 +78,6 @@ const fileFilter = (
     console.error(`❌ ${error.message}`);
     return cb(error);
   }
-
-  console.log(`✅ Archivo validado correctamente: ${file.originalname}`);
   cb(null, true);
 };
 
@@ -244,12 +236,10 @@ export const deleteImageFile = async (imagePath: string): Promise<boolean> => {
       filePath = path.join(process.cwd(), imagePath);
     } else if (imagePath.startsWith("http")) {
       // No eliminar URLs externas
-      console.log(`⚠️  URL externa detectada, no se eliminará: ${imagePath}`);
       return false;
     }
 
     await fs.unlink(filePath);
-    console.log(`🗑️  Archivo eliminado exitosamente: ${filePath}`);
     return true;
   } catch (error) {
     console.error(`❌ Error eliminando archivo ${imagePath}:`, error);
@@ -263,12 +253,9 @@ export const cleanupTempFiles = async (
 ): Promise<void> => {
   if (!files || files.length === 0) return;
 
-  console.log(`🧹 Limpiando ${files.length} archivos temporales...`);
-
   const cleanupPromises = files.map(async (file) => {
     try {
       await fs.unlink(file.path);
-      console.log(`🗑️  Archivo temporal eliminado: ${file.filename}`);
     } catch (error) {
       console.error(
         `❌ Error eliminando archivo temporal ${file.filename}:`,
@@ -278,7 +265,6 @@ export const cleanupTempFiles = async (
   });
 
   await Promise.all(cleanupPromises);
-  console.log(`✅ Limpieza de archivos temporales completada`);
 };
 
 // Función para validar URLs de imágenes externas

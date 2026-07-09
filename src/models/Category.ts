@@ -26,7 +26,6 @@ const CategorySchema: Schema = new Schema(
     name: {
       type: String,
       required: [true, "El nombre de la categoría es requerido"],
-      unique: true,
       trim: true,
       maxlength: [100, "El nombre no puede exceder 100 caracteres"],
     },
@@ -76,7 +75,12 @@ const CategorySchema: Schema = new Schema(
 );
 
 // Índices para búsquedas y jerarquías
-CategorySchema.index({ name: 1 });
+// Unicidad compuesta: el nombre debe ser único dentro del mismo padre.
+// Permite que el mismo nombre exista bajo distintos padres (p.ej. "Plastico"
+// como subcategoría de dos categorías padre distintas), pero impide duplicados
+// entre hermanos. MongoDB trata `null` como valor, por lo que las categorías
+// raíz también quedan unívocamente restringidas entre sí.
+CategorySchema.index({ name: 1, parentCategoryId: 1 }, { unique: true });
 CategorySchema.index({ parentCategoryId: 1 });
 CategorySchema.index({ level: 1 });
 CategorySchema.index({ isParent: 1 });
@@ -213,8 +217,6 @@ CategorySchema.statics.buildHierarchy = async function (
 // Método estático para migrar categorías existentes
 CategorySchema.statics.migrateExistingCategories = async function () {
   try {
-    console.log("🔄 Iniciando migración de categorías existentes...");
-
     // Agregar campos faltantes a categorías existentes
     const result = await this.updateMany(
       {
@@ -231,10 +233,6 @@ CategorySchema.statics.migrateExistingCategories = async function () {
           level: 0,
         },
       }
-    );
-
-    console.log(
-      `✅ Migración completada: ${result.modifiedCount} categorías actualizadas`
     );
     return result;
   } catch (error) {

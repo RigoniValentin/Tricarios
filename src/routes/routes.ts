@@ -52,6 +52,8 @@ import uploadRoutes from "./uploadRoutes";
 import heroSlideRoutes from "./heroSlideRoutes";
 import blogRoutes from "./blogRoutes";
 import externalRoutes from "./externalRoutes";
+import rgWebAdminRoutes from "./rgWebAdminRoutes";
+import storeOrdersRoutes from "./storeOrdersRoutes";
 import {
   applyCoupon,
   cancelPayment,
@@ -262,6 +264,12 @@ export default () => {
 
   // Rutas de integración con sistemas externos (Río Gestión, etc.)
   router.use("/external", externalRoutes);
+
+  // Endpoints admin (JWT) para integración con RG WEB desde el panel admin
+  router.use("/integrations/rgweb", rgWebAdminRoutes);
+
+  // BFF de la tienda: el frontend habla solo con este backend.
+  router.use("/store", storeOrdersRoutes);
   // #endregion
 
   // #region Admin Utilities

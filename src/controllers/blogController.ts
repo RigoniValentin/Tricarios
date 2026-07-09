@@ -212,16 +212,12 @@ export const createBlogPost = async (
   res: Response
 ): Promise<void> => {
   try {
-    console.log("📝 Creando blog post...");
-    console.log("Body:", JSON.stringify(req.body, null, 2));
-
     const { title, excerpt, content, tags, published, featured, author, youtubeUrl } = req.body;
 
     // Handle cover image from multer
     let coverImage = "";
     if (req.file) {
       coverImage = `/uploads/blog/${req.file.filename}`;
-      console.log(`📷 Imagen de portada: ${coverImage}`);
     }
 
     const blogData: any = {
@@ -239,8 +235,6 @@ export const createBlogPost = async (
 
     const blog = new BlogPost(blogData);
     await blog.save();
-
-    console.log("✅ Blog post creado:", blog.title);
 
     res.status(201).json({
       success: true,
@@ -268,7 +262,6 @@ export const updateBlogPost = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    console.log(`📝 Actualizando blog post ${id}...`);
 
     const { title, excerpt, content, tags, published, featured, author, youtubeUrl } = req.body;
 
@@ -288,7 +281,6 @@ export const updateBlogPost = async (
     // Handle cover image from multer
     if (req.file) {
       updateData.coverImage = `/uploads/blog/${req.file.filename}`;
-      console.log(`📷 Nueva imagen de portada: ${updateData.coverImage}`);
     }
 
     const blog = await BlogPost.findByIdAndUpdate(id, updateData, {
@@ -300,8 +292,6 @@ export const updateBlogPost = async (
       res.status(404).json({ success: false, error: "Post no encontrado" });
       return;
     }
-
-    console.log("✅ Blog post actualizado:", blog.title);
 
     res.status(200).json({
       success: true,
@@ -322,7 +312,6 @@ export const deleteBlogPost = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    console.log(`🗑️ Eliminando blog post ${id}...`);
 
     const blog = await BlogPost.findByIdAndDelete(id).exec();
 
@@ -330,8 +319,6 @@ export const deleteBlogPost = async (
       res.status(404).json({ success: false, error: "Post no encontrado" });
       return;
     }
-
-    console.log("✅ Blog post eliminado:", blog.title);
 
     res.status(200).json({
       success: true,

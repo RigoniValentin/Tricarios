@@ -161,7 +161,6 @@ const BlogPostSchema: Schema = new Schema(
 );
 
 // Índices
-BlogPostSchema.index({ slug: 1 }, { unique: true });
 BlogPostSchema.index({ published: 1, createdAt: -1 });
 BlogPostSchema.index({ tags: 1 });
 BlogPostSchema.index({ featured: 1 });

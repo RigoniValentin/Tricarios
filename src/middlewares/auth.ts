@@ -19,7 +19,9 @@ export const verifyToken = async (
     (req.query.authToken as string); // Leer el token de la URL
 
   if (!token) {
-    res.status(401).json({ message: "JWT must be provided" });
+    res
+      .status(401)
+      .json({ message: "JWT must be provided", code: "NO_TOKEN" });
     return;
   }
 
@@ -33,11 +35,28 @@ export const verifyToken = async (
     }
 
     req.currentUser = getUser;
-    console.log("Token verified, user:", req.currentUser);
     next();
   } catch (error: any) {
-    console.log("error :>> ", error);
-    res.status(401).send(error.message);
+    // Token expirado o inválido es un caso esperado (no logueado / sesión vencida).
+    // No ensuciamos los logs con stack traces para estos casos normales.
+    if (error instanceof jwt.TokenExpiredError) {
+      res
+        .status(401)
+        .json({ message: "Token expirado", code: "TOKEN_EXPIRED" });
+      return;
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      res
+        .status(401)
+        .json({ message: "Token inválido", code: "TOKEN_INVALID" });
+      return;
+    }
+
+    // Cualquier otro error sí es inesperado: lo registramos.
+    console.error("Error verificando token:", error?.message ?? error);
+    res
+      .status(401)
+      .json({ message: "No autorizado", code: "UNAUTHORIZED" });
   }
 };
 
@@ -49,11 +68,9 @@ export const getPermissions = async (
   // - Obtener lo roles, (desde currentUser) y el Metodo HTTP de la petición
   const { currentUser, method, path } = req;
   const { roles } = currentUser;
-  console.log("currentUser :>> ", currentUser);
 
   // - Obtener el path/modulos (usuarios - roles - posts)
   const currentModule = path.split("/")[1];
-  console.log("currentModule :>> ", currentModule);
 
   // - Conseguir en los permisos el metodo que coincida para obtener el objeto que contiene el scope
   const findMethod = permissions.find(
@@ -66,13 +83,11 @@ export const getPermissions = async (
   ) {
     findMethod?.permissions.push(`${currentModule}_${findMethod.scope}`);
   }
-  console.log("findMethod :>> ", findMethod);
 
   // - obtener todos los permisos de los roles del usuario
   const mergedRolesPermissions = [
     ...new Set(roles?.flatMap((role) => role.permissions)),
   ];
-  console.log("mergedRolesPermissions :>> ", mergedRolesPermissions);
 
   //- Verificar si el usuario Tiene Permisos
   //- Tienen mayor prioridad q los permisos de los roles
@@ -89,7 +104,6 @@ export const getPermissions = async (
   const permissionGranted = findMethod?.permissions.find((x) =>
     mergedRolesPermissions.includes(x)
   );
-  console.log("permissionGranted :>> ", permissionGranted);
 
   // - si no hay match, regresamos un error unauthorized
   if (!permissionGranted) {

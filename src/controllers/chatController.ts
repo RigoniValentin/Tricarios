@@ -10,7 +10,6 @@ export const getChatHistory = async (
     const messages: IChatMessage[] = await ChatMessage.find()
       .sort({ createdAt: 1 })
       .exec();
-    console.log("Historial enviado:", messages); // Log de los mensajes a enviar
     // Deshabilitar caché para forzar siempre una respuesta completa
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
@@ -27,7 +26,6 @@ export const deleteChatHistory = async (
 ): Promise<void> => {
   try {
     await ChatMessage.deleteMany({});
-    console.log("Historial eliminado exitosamente"); // Log de eliminación
     res.json({ message: "Historial eliminado exitosamente" });
   } catch (error) {
     console.error("Error al eliminar el historial:", error);

@@ -28,7 +28,7 @@ export const registerUser = async (
 
     res.status(201).json(newUser);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error registrando usuario:", error);
     res.status(500).json(error);
   }
 };
@@ -65,7 +65,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     res.json(token);
   } catch (error) {
-    console.log("error :>> ", error);
+    console.error("Error iniciando sesión:", error);
     res.status(500).json(error);
   }
 };
@@ -75,7 +75,6 @@ export const refreshToken = async (
   res: Response
 ): Promise<void> => {
   try {
-    console.log("refreshToken called, user:", req.currentUser);
     // Verificar que req.currentUser exista
     if (!req.currentUser || !req.currentUser._id) {
       res.status(401).json({ message: "Unauthorized" });
@@ -104,7 +103,6 @@ export const refreshToken = async (
       { expiresIn: "3h" }
     );
 
-    console.log("New token:", newToken);
     res.json({ token: newToken });
   } catch (error: any) {
     console.error("Error in refreshToken:", error);

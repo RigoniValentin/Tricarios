@@ -14,7 +14,6 @@ const deleteImageFile = async (imagePath: string): Promise<boolean> => {
     }
 
     await fs.unlink(filePath);
-    console.log(`🗑️ Imagen de slide eliminada: ${filePath}`);
     return true;
   } catch (error) {
     console.error(`❌ Error eliminando imagen de slide ${imagePath}:`, error);

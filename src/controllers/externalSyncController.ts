@@ -7,6 +7,7 @@ import {
 } from "@services/rgIntegration.service";
 import { logIntegrationEvent, IntegrationLog } from "@models/IntegrationLog";
 import { getRGConfigStatus, rgIntegrationConfig } from "@config/rgIntegration";
+import { domainBus } from "../realtime/domainBus";
 
 /**
  * Endpoints del módulo de integración con Río Gestión.
@@ -56,6 +57,30 @@ export const receiveStockWebhook = async (
     payload: { received: items.length, timestamp: body.timestamp || null },
     responseBody: report,
   });
+
+  // Proyección hacia el bus de dominio. El transport Socket.IO se suscribe
+  // en `realtime/socketServer.ts` y emite a la room "catalog".
+  if (items.length > 0) {
+    domainBus.emit("catalog.stockChanged", {
+      source: "rg-web",
+      items: items
+        .filter((it) => it && typeof it.PRODUCTO_ID === "number")
+        .map((it) => {
+          const stockCount = Math.max(0, Math.floor(Number(it.STOCK) || 0));
+          const price = Math.max(0, Number(it.PRECIO) || 0);
+          const inStock = it.ACTIVO !== false && stockCount > 0;
+          return {
+            managementId: it.PRODUCTO_ID,
+            price,
+            stockCount,
+            inStock,
+            name: typeof it.NOMBRE === "string" ? it.NOMBRE : undefined,
+          };
+        }),
+      report,
+      occurredAt: new Date().toISOString(),
+    });
+  }
 
   res.status(200).json({ ok: true, event, report });
 };

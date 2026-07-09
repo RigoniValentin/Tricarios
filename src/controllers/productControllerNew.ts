@@ -13,21 +13,96 @@ import {
   handleUploadError,
 } from "@middlewares/upload";
 import uploadMiddleware from "@middlewares/upload";
+import { pullCatalogProductByManagementId } from "@services/rgIntegration.service";
 
 const MAX_FILES = uploadMiddleware.MAX_FILES;
 
-// Función auxiliar para logging detallado
-const logOperation = (operation: string, details: any) => {
-  console.log(
-    `🔄 [${new Date().toISOString()}] ${operation}:`,
-    JSON.stringify(details, null, 2)
-  );
+type ProductRGSyncField = "name" | "price" | "stockCount";
+
+interface ProductRGSyncInfo {
+  attempted: boolean;
+  synchronized: boolean;
+  managementId: number;
+  message: string;
+  updatedFields: ProductRGSyncField[];
+  currentValues?: {
+    name: string;
+    price: number;
+    stockCount: number;
+  };
+}
+
+const syncSavedProductWithRG = async (
+  productId: string,
+  managementId: number,
+  snapshotBeforeSync: {
+    name: string;
+    price: number;
+    stockCount: number;
+  },
+): Promise<{ product: any; rgSync: ProductRGSyncInfo }> => {
+  try {
+    const syncResult = await pullCatalogProductByManagementId(managementId);
+    const finalProduct = await Product.findById(productId);
+    const updatedFields: ProductRGSyncField[] = [];
+
+    if (finalProduct) {
+      if (finalProduct.name !== snapshotBeforeSync.name) {
+        updatedFields.push("name");
+      }
+      if (Number(finalProduct.price) !== Number(snapshotBeforeSync.price)) {
+        updatedFields.push("price");
+      }
+      if (Number(finalProduct.stockCount) !== Number(snapshotBeforeSync.stockCount)) {
+        updatedFields.push("stockCount");
+      }
+    }
+
+    return {
+      product: finalProduct,
+      rgSync: {
+        attempted: true,
+        synchronized: syncResult.ok,
+        managementId,
+        message: syncResult.ok
+          ? updatedFields.length > 0
+            ? "Río Gestión actualizó el producto vinculado"
+            : "El producto ya estaba sincronizado con Río Gestión"
+          : syncResult.message,
+        updatedFields,
+        currentValues: finalProduct
+          ? {
+              name: finalProduct.name,
+              price: Number(finalProduct.price),
+              stockCount: Number(finalProduct.stockCount),
+            }
+          : undefined,
+      },
+    };
+  } catch (error) {
+    return {
+      product: await Product.findById(productId),
+      rgSync: {
+        attempted: true,
+        synchronized: false,
+        managementId,
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo sincronizar con Río Gestión",
+        updatedFields: [],
+      },
+    };
+  }
 };
+
+// Función auxiliar para logging detallado
+const logOperation = (_operation: string, _details: any) => undefined;
 
 // Función auxiliar para procesar imágenes
 const processImages = (
   files: Express.Multer.File[],
-  existingImages: string[] = []
+  existingImages: string[] = [],
 ): string[] => {
   logOperation("PROCESANDO_IMAGENES", {
     archivosNuevos: files?.length || 0,
@@ -40,7 +115,7 @@ const processImages = (
 
   // Generar URLs para los nuevos archivos
   const newImageUrls = files.map(
-    (file) => `/uploads/products/${file.filename}`
+    (file) => `/uploads/products/${file.filename}`,
   );
 
   // Combinar imágenes existentes con nuevas
@@ -81,7 +156,7 @@ const processImagesReplace = (files: Express.Multer.File[]): string[] => {
 
   // Generar URLs para los nuevos archivos
   const newImageUrls = files.map(
-    (file) => `/uploads/products/${file.filename}`
+    (file) => `/uploads/products/${file.filename}`,
   );
 
   // Limitar a máximo 6 imágenes
@@ -104,6 +179,66 @@ const processImagesReplace = (files: Express.Multer.File[]): string[] => {
   return finalImages;
 };
 
+const normalizeImagePath = (imagePath: string): string => {
+  const trimmed = imagePath.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.startsWith("/uploads/")) return trimmed;
+  if (trimmed.startsWith("uploads/")) return `/${trimmed}`;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.pathname.startsWith("/uploads/products/")) {
+      return url.pathname;
+    }
+  } catch {
+    // Mantener URLs externas o rutas no parseables tal como llegan.
+  }
+
+  return trimmed;
+};
+
+const normalizeGalleryInput = (galleryInput: any): string[] => {
+  let values: any[] = [];
+
+  if (Array.isArray(galleryInput)) {
+    values = galleryInput;
+  } else if (typeof galleryInput === "string") {
+    const trimmed = galleryInput.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      values = Array.isArray(parsed) ? parsed : [trimmed];
+    } catch {
+      values = [trimmed];
+    }
+  }
+
+  return values
+    .filter((value) => typeof value === "string")
+    .map((value) => normalizeImagePath(value))
+    .filter(Boolean)
+    .slice(0, MAX_FILES);
+};
+
+const getRemovedLocalImages = (
+  previousImages: string[] = [],
+  nextImages: string[] = [],
+): string[] => {
+  const nextSet = new Set(nextImages.map((image) => normalizeImagePath(image)));
+  return previousImages
+    .map((image) => normalizeImagePath(image))
+    .filter((image) => image.startsWith("/uploads/") && !nextSet.has(image));
+};
+
+const getEntityId = (value: any): string => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (value._id) return value._id.toString();
+  if (value.id) return value.id.toString();
+  return value.toString ? value.toString() : "";
+};
+
 // Función para eliminar imágenes anteriores
 const cleanupOldImages = async (imagesToDelete: string[]): Promise<void> => {
   if (!imagesToDelete || imagesToDelete.length === 0) return;
@@ -113,8 +248,9 @@ const cleanupOldImages = async (imagesToDelete: string[]): Promise<void> => {
   });
 
   const deletePromises = imagesToDelete.map(async (imageUrl) => {
-    const success = await deleteImageFile(imageUrl);
-    return { imageUrl, success };
+    const normalizedImageUrl = normalizeImagePath(imageUrl);
+    const success = await deleteImageFile(normalizedImageUrl);
+    return { imageUrl: normalizedImageUrl, success };
   });
 
   const results = await Promise.all(deletePromises);
@@ -129,7 +265,7 @@ const cleanupOldImages = async (imagesToDelete: string[]): Promise<void> => {
 // GET /api/v1/products - Obtener todos los productos
 export const getProducts = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -140,6 +276,7 @@ export const getProducts = async (
       inStock,
       featured,
       tags,
+      rgLink,
       page = "1",
       limit = "10",
       sortBy = "createdAt",
@@ -178,6 +315,19 @@ export const getProducts = async (
       const tagArray = Array.isArray(tags) ? tags : [tags];
       filter.tags = { $in: tagArray };
     }
+
+    const rgLinkCondition =
+      rgLink === "linked"
+        ? { managementId: { $exists: true, $nin: [null, 0] } }
+        : rgLink === "unlinked"
+          ? {
+              $or: [
+                { managementId: { $exists: false } },
+                { managementId: null },
+                { managementId: 0 },
+              ],
+            }
+          : null;
 
     if (search) {
       // Importar utilidades de búsqueda
@@ -228,13 +378,22 @@ export const getProducts = async (
         }
 
         // Asignar todas las condiciones al filtro
-        filter.$or = searchConditions;
+        if (rgLinkCondition) {
+          filter = {
+            ...filter,
+            $and: [{ $or: searchConditions }, rgLinkCondition],
+          };
+        } else {
+          filter.$or = searchConditions;
+        }
 
         logOperation("FILTRO_BUSQUEDA_GENERADO", {
           totalConditions: searchConditions.length,
           sample: searchConditions.slice(0, 3),
         });
       }
+    } else if (rgLinkCondition) {
+      filter = { ...filter, ...rgLinkCondition };
     }
 
     // Configurar paginación
@@ -260,7 +419,7 @@ export const getProducts = async (
       // Ordenar por relevancia
       const sortedProducts = sortByRelevance(
         allMatchingProducts,
-        search as string
+        search as string,
       );
 
       // Aplicar paginación después del ordenamiento por relevancia
@@ -319,7 +478,7 @@ export const getProducts = async (
 // GET /api/v1/products/search - Búsqueda avanzada con scoring de relevancia
 export const searchProducts = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -331,6 +490,7 @@ export const searchProducts = async (
       inStock,
       featured,
       tags,
+      rgLink,
       page = "1",
       limit = "10",
       includeScore = "false",
@@ -393,6 +553,19 @@ export const searchProducts = async (
         additionalFilters.tags = { $in: tagArray };
       }
 
+      const rgLinkCondition =
+        rgLink === "linked"
+          ? { managementId: { $exists: true, $nin: [null, 0] } }
+          : rgLink === "unlinked"
+            ? {
+                $or: [
+                  { managementId: { $exists: false } },
+                  { managementId: null },
+                  { managementId: 0 },
+                ],
+              }
+            : null;
+
       // Crear queries de búsqueda
       const { exactMatchQuery, partialTermQuery, allWordsQuery, anyWordQuery } =
         createSearchQueries(searchTerm);
@@ -417,10 +590,15 @@ export const searchProducts = async (
       }
 
       // Combinar filtros de búsqueda y adicionales
-      const finalFilter = {
-        ...additionalFilters,
-        $or: searchConditions,
-      };
+      const finalFilter = rgLinkCondition
+        ? {
+            ...additionalFilters,
+            $and: [{ $or: searchConditions }, rgLinkCondition],
+          }
+        : {
+            ...additionalFilters,
+            $or: searchConditions,
+          };
 
       // Configurar paginación
       const pageNum = Math.max(1, parseInt(page as string));
@@ -483,7 +661,7 @@ export const searchProducts = async (
 // GET /api/v1/products/:id - Obtener producto por ID
 export const getProductById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -525,7 +703,7 @@ export const getProductById = async (
 // POST /api/v1/products - Crear nuevo producto
 export const createProduct = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     logOperation("CREAR_PRODUCTO_INICIO", { body: req.body });
@@ -546,6 +724,7 @@ export const createProduct = async (
       specifications = {},
     } = req.body;
     const files = req.files as Express.Multer.File[];
+    const bodyGallery = normalizeGalleryInput(req.body.gallery);
 
     // Validación de campos obligatorios
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -644,12 +823,7 @@ export const createProduct = async (
     }
 
     // Validar que se proporcionen imágenes (desde archivos o gallery)
-    if (
-      (!files || files.length === 0) &&
-      (!req.body.gallery ||
-        !Array.isArray(req.body.gallery) ||
-        req.body.gallery.length === 0)
-    ) {
+    if ((!files || files.length === 0) && bodyGallery.length === 0) {
       res.status(400).json({
         success: false,
         message:
@@ -672,8 +846,8 @@ export const createProduct = async (
     let imageUrls: string[] = [];
     if (files && files.length > 0) {
       imageUrls = processImages(files);
-    } else if (Array.isArray(req.body.gallery) && req.body.gallery.length > 0) {
-      imageUrls = req.body.gallery.slice(0, MAX_FILES);
+    } else if (bodyGallery.length > 0) {
+      imageUrls = bodyGallery;
     }
 
     logOperation("IMAGENES_PROCESADAS", { urls: imageUrls });
@@ -698,32 +872,44 @@ export const createProduct = async (
     };
 
     // LOG: Mostrar datos completos antes de crear el producto
-    console.log(
-      "[CREATE_PRODUCT] productData completo:",
-      JSON.stringify(productData, null, 2)
-    );
-    console.log(
-      "[CREATE_PRODUCT] productData.gallery específico:",
-      productData.gallery
-    );
-
     const product = new Product(productData);
     const savedProduct = await product.save();
+    let responseProduct: any = savedProduct;
+    let rgSync: ProductRGSyncInfo | undefined;
+
+    if (
+      typeof savedProduct.managementId === "number" &&
+      savedProduct.managementId > 0
+    ) {
+      const syncOutcome = await syncSavedProductWithRG(
+        String(savedProduct._id),
+        savedProduct.managementId,
+        {
+          name: savedProduct.name,
+          price: Number(savedProduct.price),
+          stockCount: Number(savedProduct.stockCount),
+        },
+      );
+      responseProduct = syncOutcome.product ?? savedProduct;
+      rgSync = syncOutcome.rgSync;
+    }
 
     logOperation("PRODUCTO_CREADO", {
-      id: savedProduct._id,
-      name: savedProduct.name,
-      imagePrincipal: savedProduct.image,
-      totalImagenes: savedProduct.gallery?.length || 0,
+      id: responseProduct._id,
+      name: responseProduct.name,
+      imagePrincipal: responseProduct.image,
+      totalImagenes: responseProduct.gallery?.length || 0,
+      rgSync,
     });
 
     res.status(201).json({
       success: true,
       message: "Producto creado exitosamente",
       data: {
-        ...savedProduct.toObject(),
-        imageUrls: savedProduct.gallery, // URLs completas para el frontend
+        ...responseProduct.toObject(),
+        imageUrls: responseProduct.gallery, // URLs completas para el frontend
       },
+      rgSync,
     });
   } catch (error) {
     // Limpiar archivos subidos en caso de error
@@ -755,7 +941,7 @@ export const createProduct = async (
 // PUT /api/v1/products/:id - Actualizar producto
 export const updateProduct = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -777,6 +963,8 @@ export const updateProduct = async (
       gallery,
     } = req.body;
     const files = req.files as Express.Multer.File[];
+    const normalizedGallery =
+      gallery !== undefined ? normalizeGalleryInput(gallery) : undefined;
 
     logOperation("ACTUALIZAR_PRODUCTO_INICIO", {
       id,
@@ -796,8 +984,18 @@ export const updateProduct = async (
       return;
     }
 
+    const previousSnapshot = {
+      name: product.name,
+      price: Number(product.price),
+      stockCount: Number(product.stockCount),
+    };
+
+    const previousCategoryId = getEntityId(product.categoryId);
+    const previousManagementId =
+      typeof product.managementId === "number" ? product.managementId : undefined;
+
     // Validar categoría si se proporciona
-    if (categoryId && categoryId !== product.categoryId.toString()) {
+    if (categoryId && categoryId !== previousCategoryId) {
       const categoryExists = await Category.findById(categoryId);
       if (!categoryExists) {
         await cleanupTempFiles(files);
@@ -863,7 +1061,6 @@ export const updateProduct = async (
         const parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags;
         product.tags = Array.isArray(parsedTags) ? parsedTags : [];
       } catch (error) {
-        console.log("Error parsing tags, using as array:", error);
         product.tags = typeof tags === "string" ? [tags] : [];
       }
     }
@@ -877,7 +1074,6 @@ export const updateProduct = async (
             : specifications;
         product.specifications = parsedSpecs || {};
       } catch (error) {
-        console.log("Error parsing specifications, using empty object:", error);
         product.specifications = {};
       }
     }
@@ -889,7 +1085,7 @@ export const updateProduct = async (
 
     // Determinar si hay imágenes nuevas (ya sea por archivos o gallery)
     const hasNewFiles = files && files.length > 0;
-    const hasNewGallery = Array.isArray(gallery) && gallery.length > 0;
+    const hasNewGallery = normalizedGallery !== undefined;
     const hasNewImages = hasNewFiles || hasNewGallery;
 
     logOperation("GESTION_IMAGENES_UPDATE", {
@@ -898,6 +1094,7 @@ export const updateProduct = async (
       hasNewImages,
       shouldReplaceImages,
       currentImages: product.gallery.length,
+      galleryPayloadImages: normalizedGallery?.length ?? 0,
       replaceImagesParam: replaceImages,
       comportamiento: shouldReplaceImages
         ? "REEMPLAZAR (por defecto)"
@@ -908,23 +1105,28 @@ export const updateProduct = async (
       if (shouldReplaceImages) {
         logOperation("REEMPLAZANDO_IMAGENES_POR_DEFECTO", {
           imagenesAnteriores: product.gallery.length,
-          imagenesNuevas: hasNewFiles ? files.length : gallery.length,
+          imagenesNuevas: hasNewFiles
+            ? files.length
+            : (normalizedGallery?.length ?? 0),
           tipoActualizacion: hasNewFiles ? "archivos" : "gallery",
           razon:
             "Comportamiento por defecto: nuevas imágenes reemplazan anteriores",
         });
 
-        // Eliminar imágenes anteriores y reemplazar completamente
-        await cleanupOldImages(product.gallery);
-
         // Procesar nuevas imágenes según el tipo
         let newImages: string[];
         if (hasNewFiles) {
+          // Con archivos nuevos se reemplaza toda la galería anterior.
+          await cleanupOldImages(product.gallery);
           // Procesar archivos subidos
           newImages = processImagesReplace(files);
         } else {
+          // Con gallery JSON, conservar archivos que siguen presentes y borrar solo los removidos.
+          newImages = normalizedGallery ?? [];
+          await cleanupOldImages(
+            getRemovedLocalImages(product.gallery, newImages),
+          );
           // Usar gallery del body (URLs ya procesadas)
-          newImages = gallery.slice(0, MAX_FILES);
         }
 
         product.gallery = newImages;
@@ -937,19 +1139,22 @@ export const updateProduct = async (
         // Solo agregar imágenes cuando explícitamente se indique replaceImages=false
         logOperation("AGREGANDO_IMAGENES_EXPLICITO", {
           imagenesExistentes: product.gallery.length,
-          imagenesNuevas: hasNewFiles ? files.length : gallery.length,
+          imagenesNuevas: hasNewFiles
+            ? files.length
+            : (normalizedGallery?.length ?? 0),
           tipoActualizacion: hasNewFiles ? "archivos" : "gallery",
           razon: "Explícitamente indicado replaceImages=false",
         });
 
         // Procesar nuevas imágenes y combinar con existentes
         let newImages: string[];
+        const currentGallery = normalizeGalleryInput(product.gallery);
         if (hasNewFiles) {
           // Combinar archivos con existentes
-          newImages = processImages(files, product.gallery);
+          newImages = processImages(files, currentGallery);
         } else {
           // Combinar gallery URLs con existentes
-          const allImages = [...product.gallery, ...gallery];
+          const allImages = [...currentGallery, ...(normalizedGallery ?? [])];
           newImages = allImages.slice(0, MAX_FILES);
         }
 
@@ -963,20 +1168,67 @@ export const updateProduct = async (
     }
 
     const updatedProduct = await product.save();
+    let responseProduct: any = updatedProduct;
+    let rgSync: ProductRGSyncInfo | undefined;
+    const updatedCategoryId = getEntityId(updatedProduct.categoryId);
+    const nextManagementId =
+      typeof updatedProduct.managementId === "number"
+        ? updatedProduct.managementId
+        : undefined;
+
+    if (
+      typeof nextManagementId === "number" &&
+      nextManagementId > 0 &&
+      (nextManagementId !== previousManagementId ||
+        updatedProduct.name !== previousSnapshot.name ||
+        Number(updatedProduct.price) !== previousSnapshot.price ||
+        Number(updatedProduct.stockCount) !== previousSnapshot.stockCount)
+    ) {
+      const syncOutcome = await syncSavedProductWithRG(
+        String(updatedProduct._id),
+        nextManagementId,
+        {
+          name: updatedProduct.name,
+          price: Number(updatedProduct.price),
+          stockCount: Number(updatedProduct.stockCount),
+        },
+      );
+      responseProduct = syncOutcome.product ?? updatedProduct;
+      rgSync = syncOutcome.rgSync;
+    }
+
+    if (
+      previousCategoryId &&
+      updatedCategoryId &&
+      previousCategoryId !== updatedCategoryId
+    ) {
+      const previousCategoryCount = await Product.countDocuments({
+        categoryId: previousCategoryId,
+      });
+      await Category.findByIdAndUpdate(previousCategoryId, {
+        productCount: previousCategoryCount,
+      });
+      logOperation("CONTADOR_CATEGORIA_ANTERIOR_ACTUALIZADO", {
+        categoryId: previousCategoryId,
+        productCount: previousCategoryCount,
+      });
+    }
 
     logOperation("PRODUCTO_ACTUALIZADO", {
-      id: updatedProduct._id,
-      totalImagenes: updatedProduct.gallery.length,
-      imagenesUrls: updatedProduct.gallery,
+      id: responseProduct._id,
+      totalImagenes: responseProduct.gallery.length,
+      imagenesUrls: responseProduct.gallery,
+      rgSync,
     });
 
     res.json({
       success: true,
       message: "Producto actualizado exitosamente",
       data: {
-        ...updatedProduct.toObject(),
-        imageUrls: updatedProduct.gallery,
+        ...responseProduct.toObject(),
+        imageUrls: responseProduct.gallery,
       },
+      rgSync,
     });
   } catch (error) {
     // Limpiar archivos subidos en caso de error
@@ -1009,7 +1261,7 @@ export const updateProduct = async (
 // DELETE /api/v1/products/:id - Eliminar producto
 export const deleteProduct = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -1074,7 +1326,7 @@ export const deleteProduct = async (
 // PUT /api/v1/products/:id/stock - Actualizar stock de un producto
 export const updateProductStock = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -1144,7 +1396,7 @@ export const updateProductStock = async (
 // GET /api/v1/products/:id/images - Obtener información de slots de imágenes
 export const getProductImageSlots = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -1210,7 +1462,7 @@ export const getProductImageSlots = async (
 // PUT /api/v1/products/:id/images/:slot - Actualizar imagen en slot específico
 export const updateProductImageSlot = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id, slot } = req.params;
@@ -1342,7 +1594,7 @@ export const updateProductImageSlot = async (
 // DELETE /api/v1/products/:id/images/:slot - Eliminar imagen de slot específico
 export const deleteProductImageSlot = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id, slot } = req.params;
@@ -1383,7 +1635,7 @@ export const deleteProductImageSlot = async (
 
     // Prevenir eliminar la última imagen (debe tener al menos una)
     const occupiedSlots = product.gallery.filter(
-      (img) => img && img.trim()
+      (img) => img && img.trim(),
     ).length;
     if (occupiedSlots <= 1) {
       res.status(400).json({
@@ -1459,7 +1711,7 @@ export const deleteProductImageSlot = async (
 // POST /api/v1/products/:id/images/:slot/reorder - Reordenar imagen a slot específico
 export const reorderProductImageSlot = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
