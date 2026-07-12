@@ -221,6 +221,108 @@ const normalizeGalleryInput = (galleryInput: any): string[] => {
     .slice(0, MAX_FILES);
 };
 
+/**
+ * Normaliza los ejes de variantes del producto.
+ * Espera: [{ name: string, values: string[] }].
+ * Devuelve siempre un array (vacío si el input es inválido o vacío).
+ *
+ * NOTA: las variantes son metadatos locales de la tienda y NO se sincronizan
+ * con Río Gestión.
+ */
+const normalizeVariantAttributes = (
+  input: any,
+): Array<{ name: string; values: string[] }> => {
+  let raw: any[] = [];
+  if (Array.isArray(input)) {
+    raw = input;
+  } else if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      raw = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  } else {
+    return [];
+  }
+
+  const out: Array<{ name: string; values: string[] }> = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const name = String(entry.name ?? "").trim().slice(0, 40);
+    if (!name) continue;
+    const rawValues: any[] = Array.isArray(entry.values) ? entry.values : [];
+    const seen = new Set<string>();
+    const values: string[] = [];
+    for (const rawV of rawValues) {
+      if (rawV === undefined || rawV === null) continue;
+      const v = String(rawV).trim();
+      if (!v) continue;
+      const key = v.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      values.push(v);
+      if (values.length >= 50) break;
+    }
+    out.push({ name, values });
+    if (out.length >= 10) break;
+  }
+  return out;
+};
+
+/**
+ * Normaliza el mapa de imágenes por variante:
+ *   variantImages[axisName][value] = "/uploads/products/xxx.png"
+ *
+ * Solo conserva entradas cuyo eje y valor existan en `variantAttributes`.
+ * Las claves se guardan con el case exacto del eje/valor normalizado.
+ */
+const normalizeVariantImages = (
+  input: any,
+  variantAttributes: Array<{ name: string; values: string[] }>,
+): Record<string, Record<string, string>> => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+
+  // Set de pares (axis, value) válidos para lookup case-insensitive
+  const validAxis = new Map<string, string>(); // lower → exact
+  for (const a of variantAttributes) {
+    validAxis.set(a.name.toLowerCase(), a.name);
+  }
+  const validValuesByAxis = new Map<string, Map<string, string>>();
+  for (const a of variantAttributes) {
+    const m = new Map<string, string>();
+    for (const v of a.values) m.set(v.toLowerCase(), v);
+    validValuesByAxis.set(a.name.toLowerCase(), m);
+  }
+
+  const out: Record<string, Record<string, string>> = {};
+  for (const rawAxis of Object.keys(input)) {
+    const inner = input[rawAxis];
+    if (!inner || typeof inner !== "object" || Array.isArray(inner)) continue;
+    const axisExact = validAxis.get(String(rawAxis).toLowerCase());
+    if (!axisExact) continue;
+    const valueMap = validValuesByAxis.get(axisExact.toLowerCase());
+    if (!valueMap) continue;
+
+    const outInner: Record<string, string> = {};
+    for (const rawValue of Object.keys(inner)) {
+      const url = inner[rawValue];
+      if (typeof url !== "string") continue;
+      const trimmed = url.trim();
+      if (!trimmed) continue;
+      const valueExact = valueMap.get(String(rawValue).toLowerCase());
+      if (!valueExact) continue;
+      outInner[valueExact] = trimmed;
+    }
+    if (Object.keys(outInner).length > 0) {
+      out[axisExact] = outInner;
+    }
+  }
+  return out;
+};
+
 const getRemovedLocalImages = (
   previousImages: string[] = [],
   nextImages: string[] = [],
@@ -722,9 +824,16 @@ export const createProduct = async (
       featured = false,
       tags = [],
       specifications = {},
+      variantAttributes,
+      variantImages,
     } = req.body;
     const files = req.files as Express.Multer.File[];
     const bodyGallery = normalizeGalleryInput(req.body.gallery);
+    const normalizedVariantAttributes = normalizeVariantAttributes(variantAttributes);
+    const normalizedVariantImages = normalizeVariantImages(
+      variantImages,
+      normalizedVariantAttributes,
+    );
 
     // Validación de campos obligatorios
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -868,6 +977,8 @@ export const createProduct = async (
       featured: Boolean(featured),
       tags: Array.isArray(tags) ? tags : [],
       specifications: specifications || {},
+      variantAttributes: normalizedVariantAttributes,
+      variantImages: normalizedVariantImages,
       // image e inStock serán establecidos automáticamente por los middlewares del modelo
     };
 
@@ -961,6 +1072,8 @@ export const updateProduct = async (
       specifications,
       replaceImages,
       gallery,
+      variantAttributes,
+      variantImages,
     } = req.body;
     const files = req.files as Express.Multer.File[];
     const normalizedGallery =
@@ -1076,6 +1189,42 @@ export const updateProduct = async (
       } catch (error) {
         product.specifications = {};
       }
+    }
+
+    // Variantes (ejes de selección). Metadatos locales, no se sincronizan con RG.
+    if (variantAttributes !== undefined) {
+      const normalizedAttrs = normalizeVariantAttributes(variantAttributes);
+      product.variantAttributes = normalizedAttrs;
+
+      // Imágenes por variante: solo si el cliente las mandó explícitamente.
+      // Mantiene las existentes si la key no viene en el body.
+      if (variantImages !== undefined) {
+        const normalizedImages = normalizeVariantImages(
+          variantImages,
+          normalizedAttrs,
+        );
+        // Combinamos con las imágenes existentes para ejes no tocados
+        const existingImages =
+          (product.variantImages as Record<string, Record<string, string>>) ||
+          {};
+        const next: Record<string, Record<string, string>> = {};
+        for (const axis of normalizedAttrs) {
+          const incoming = normalizedImages[axis.name] || {};
+          const prev = existingImages[axis.name] || {};
+          // incoming pisa prev (mismo axis+value case-exacto)
+          next[axis.name] = { ...prev, ...incoming };
+        }
+        product.variantImages = next;
+      }
+    } else if (variantImages !== undefined) {
+      // El cliente mandó variantImages sin tocar variantAttributes:
+      // limpiamos las imágenes huérfanas (eje/valor inexistente) pero
+      // conservamos las que siguen siendo válidas.
+      const attrs = (product.variantAttributes as Array<{
+        name: string;
+        values: string[];
+      }>) || [];
+      product.variantImages = normalizeVariantImages(variantImages, attrs);
     }
 
     // Gestión de imágenes

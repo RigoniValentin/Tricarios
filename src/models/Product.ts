@@ -4,6 +4,23 @@ import {
   validateSpecifications,
 } from "../types/ProductSpecifications";
 
+export interface IProductVariantAttribute {
+  name: string; // Ej: "Color", "Sabor"
+  values: string[]; // Ej: ["Rojo", "Azul", "Verde"]
+}
+
+/**
+ * Mapa opcional de imágenes por combinación eje→valor.
+ * variantImages["Color"]["Rojo"] = "/uploads/products/foo.png"
+ *
+ * NO se sincroniza con Río Gestión. Sirve para que el cliente vea una
+ * imagen distinta al elegir un valor en la ficha del producto.
+ */
+export type IProductVariantImageMap = Record<
+  string,
+  Record<string, string>
+>;
+
 export interface IProduct extends Document {
   name: string;
   description: string;
@@ -22,6 +39,21 @@ export interface IProduct extends Document {
   tags: string[];
   specifications: IProductSpecifications;
   discount?: number;
+  /**
+   * Ejes de variantes para selección en el catálogo (display-only).
+   *
+   * Por ejemplo: [{ name: "Color", values: ["Rojo", "Azul", "Verde"] }].
+   *
+   * NOTA: NO se sincroniza con Río Gestión. Es metadata local de la tienda
+   * para mejorar la UX al elegir una combinación. El stock y precio del
+   * producto base siguen siendo los que se sincronizan con RG WEB.
+   */
+  variantAttributes: IProductVariantAttribute[];
+  /**
+   * Imagen opcional por valor de variante.
+   * Solo se persisten entradas cuyos eje/valor existan en `variantAttributes`.
+   */
+  variantImages: IProductVariantImageMap;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -133,6 +165,59 @@ const ProductSchema: Schema = new Schema(
       type: Number,
       min: [0, "El descuento no puede ser negativo"],
       max: [100, "El descuento no puede ser mayor al 100%"],
+    },
+    variantAttributes: {
+      type: [
+        {
+          name: {
+            type: String,
+            required: true,
+            trim: true,
+            maxlength: [40, "El nombre del atributo no puede exceder 40 caracteres"],
+          },
+          values: {
+            type: [String],
+            default: [],
+            validate: {
+              validator: function (values: string[]) {
+                return Array.isArray(values) && values.length <= 50;
+              },
+              message: "Cada atributo admite hasta 50 valores",
+            },
+          },
+        },
+      ],
+      default: [],
+      validate: {
+        validator: function (attrs: IProductVariantAttribute[]) {
+          return Array.isArray(attrs) && attrs.length <= 10;
+        },
+        message: "Máximo 10 ejes de variantes por producto",
+      },
+    },
+    variantImages: {
+      type: Schema.Types.Mixed,
+      default: {},
+      validate: {
+        validator: function (v: unknown) {
+          if (v === null || v === undefined) return true;
+          if (typeof v !== "object" || Array.isArray(v)) return false;
+          // Cada entrada debe ser un objeto { value: url } con url string.
+          for (const axis of Object.keys(v as Record<string, unknown>)) {
+            const inner = (v as Record<string, unknown>)[axis];
+            if (inner === null || inner === undefined) continue;
+            if (typeof inner !== "object" || Array.isArray(inner)) return false;
+            for (const value of Object.keys(inner as Record<string, unknown>)) {
+              const url = (inner as Record<string, unknown>)[value];
+              if (url !== null && url !== undefined && typeof url !== "string") {
+                return false;
+              }
+            }
+          }
+          return true;
+        },
+        message: "variantImages debe ser { [axis]: { [value]: url } }",
+      },
     },
   },
   {
