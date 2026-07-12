@@ -1,4 +1,4 @@
-import express, { Application } from "express";
+import express, { Application, Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
 import routes from "@routes/routes";
@@ -9,6 +9,26 @@ import { ChatMessage } from "@models/ChatMessage"; // Importar el modelo de mens
 
 const app: Application = express();
 const projectRoot = process.cwd();
+
+// ── Sanitización de URL (defensa contra percent-encoding malformado) ─────
+// Algunos scanners y clientes maliciosos envían URLs con secuencias
+// percent-encoded inválidas (p.ej. /%c0). Esto hace que el router de
+// Express lance un URIError no atrapado, abortando el envío del archivo
+// estático y dejando la página en blanco. Cortamos el problema de raíz
+// respondiendo 400 antes de que la request llegue al router.
+app.use((req: Request, res: Response, next: NextFunction): void => {
+  try {
+    decodeURIComponent(req.url);
+    decodeURIComponent(req.path);
+    return next();
+  } catch (err) {
+    if (err instanceof URIError) {
+      res.status(400).type("text/plain").send("Bad Request");
+      return;
+    }
+    next(err);
+  }
+});
 
 app.use(cookieParser());
 // Capturamos el raw body en req.rawBody para poder verificar HMAC en webhooks
@@ -142,6 +162,26 @@ app.get("*", (req, res, next) => {
     res.set("Expires", "0");
     res.send(injected);
   });
+});
+
+// ── Error handler final ─────────────────────────────────────────────────
+// Captura URIError residuales (URLs con percent-encoding malformado que
+// llegaron a pasar la sanitización inicial) y cualquier error de send/
+// serve-static, devolviendo una respuesta HTTP válida en lugar de cortar
+// la conexión a mitad de stream.
+app.use((err: any, _req: Request, res: Response, _next: NextFunction): void => {
+  if (err && err instanceof URIError) {
+    res.status(400).type("text/plain").send("Bad Request");
+    return;
+  }
+  if (err && err.status === 400) {
+    res.status(400).type("text/plain").send("Bad Request");
+    return;
+  }
+  console.error("[server] Unhandled error:", err);
+  if (!res.headersSent) {
+    res.status(500).type("text/plain").send("Internal Server Error");
+  }
 });
 
 // ── Servidor HTTP + Socket.IO ──
