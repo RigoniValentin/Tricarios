@@ -11,10 +11,13 @@ interface CompressionResult {
   savedPercent: number;
 }
 
-// Max width for product images (maintains aspect ratio)
-const MAX_WIDTH = 1200;
-const JPEG_QUALITY = 80;
-const WEBP_QUALITY = 80;
+// Max width for product images (maintains aspect ratio).
+// Subido de 1200 a 2560 para soportar pantallas Retina/4K sin pixelado.
+// Hero sliders y portadas de alta visibilidad usan MAX_WIDTH_HERO.
+const MAX_WIDTH = 2560;
+const MAX_WIDTH_HERO = 3840;
+const JPEG_QUALITY = 92;
+const WEBP_QUALITY = 92;
 const PNG_COMPRESSION_LEVEL = 8;
 
 /**
@@ -22,7 +25,8 @@ const PNG_COMPRESSION_LEVEL = 8;
  * Converts to the same format but optimized, resizing if wider than MAX_WIDTH.
  */
 export const compressImage = async (
-  filePath: string
+  filePath: string,
+  options?: { maxWidth?: number }
 ): Promise<CompressionResult | null> => {
   try {
     const stat = await fs.stat(filePath);
@@ -35,15 +39,16 @@ export const compressImage = async (
     }
 
     const tempPath = filePath + ".tmp";
+    const maxWidth = options && options.maxWidth ? options.maxWidth : MAX_WIDTH;
 
     let pipeline = sharp(filePath).rotate(); // auto-rotate based on EXIF
 
-    // Resize if wider than MAX_WIDTH
+    // Resize only if wider than maxWidth (preserves aspect ratio)
     pipeline = pipeline.resize({
-      width: MAX_WIDTH,
-      height: MAX_WIDTH,
+      width: maxWidth,
+      height: maxWidth,
       fit: "inside",
-      withoutEnlargement: true,
+      withoutEnlargement: false, // permitimos upscale si la imagen es menor
     });
 
     // Apply format-specific compression
@@ -110,16 +115,19 @@ export const compressImage = async (
 
 /**
  * Compress multiple image files (used after multer upload).
+ * Por defecto usa MAX_WIDTH (2560). Para hero sliders / portadas pasar
+ * { maxWidth: MAX_WIDTH_HERO } o el valor deseado.
  */
 export const compressUploadedFiles = async (
-  files: Express.Multer.File[]
+  files: Express.Multer.File[],
+  options?: { maxWidth?: number }
 ): Promise<CompressionResult[]> => {
   if (!files || files.length === 0) return [];
 
   const results: CompressionResult[] = [];
 
   for (const file of files) {
-    const result = await compressImage(file.path);
+    const result = await compressImage(file.path, options);
     if (result) {
       // Update the file size in the multer object
       file.size = result.compressedSize;
